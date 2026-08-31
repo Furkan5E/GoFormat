@@ -27,3 +27,10 @@ go.work.sum
 # Editor/IDE
 .idea/
 .vscode/
+
+# images
+*.jpg
+*.jpeg
+*.png
+*.webp
+*.tiff
