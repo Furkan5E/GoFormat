@@ -1,3 +1,3 @@
-module GoFormat
+module goformat
 
 go 1.27.0
