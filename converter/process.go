@@ -3,25 +3,61 @@ package converter
 import (
 	"fmt"
 	"image"
-	_ "image/jpeg"
-	_ "image/png"
 	"os"
+	"path/filepath"
+	"strings"
+
+	"goformat/format"
 )
 
 func ProcessImage(inputPath string, outFormat string, quality int) {
-	file, err := os.Open(inputPath)
+	outFormat = strings.ToLower(outFormat)
+	enc, err := format.GetEncoder(outFormat)
 	if err != nil {
-		fmt.Printf("Failed to open file: %v\n", err)
+		fmt.Println(err)
 		return
+	}
+
+	img, err := loadImage(inputPath)
+	if err != nil {
+		fmt.Printf("Failed to load image: %v\n", err)
+		return
+	}
+
+	outPath := generateOutputPath(inputPath, outFormat)
+
+	err = saveImage(img, outPath, enc, quality)
+	if err != nil {
+		fmt.Printf("Failed to save image: %v\n", err)
+		return
+	}
+
+	fmt.Printf("Success! Saved converted file as: %s\n", outPath)
+}
+
+func loadImage(path string) (image.Image, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
 	}
 	defer file.Close()
 
-	img, format, err := image.Decode(file)
-	if err != nil {
-		fmt.Printf("Failed to decode image: %v\n", err)
-		return
-	}
+	img, _, err := image.Decode(file)
+	return img, err
+}
 
-	fmt.Printf("loaded %s image. dimension: %v\n", format, img.Bounds())
-	fmt.Printf("ready to convert to %s at %d quality.\n", outFormat, quality)
+func generateOutputPath(inputPath, targetFormat string) string {
+	ext := filepath.Ext(inputPath)
+	baseName := strings.TrimSuffix(filepath.Base(inputPath), ext)
+	return fmt.Sprintf("%s_converted.%s", baseName, targetFormat)
+}
+
+func saveImage(img image.Image, path string, enc format.Encoder, quality int) error {
+	outFile, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer outFile.Close()
+
+	return enc.Encode(outFile, img, quality)
 }
