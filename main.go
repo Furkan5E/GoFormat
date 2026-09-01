@@ -15,6 +15,8 @@ func main() {
 	targetFormat := flag.String("f", "jpeg", "Target format: jpeg, png, webp")
 	quality := flag.Int("q", 85, "Compression quality for jpeg/webp (1-100)")
 	recursive := flag.Bool("r", false, "Process subdirectories recursively")
+	width := flag.Int("w", 0, "Target width in pixels (0 to keep original)")
+	height := flag.Int("h", 0, "Target height in pixels (0 to keep original)")
 	flag.Parse()
 
 	if *inputPath == "" {
@@ -36,9 +38,9 @@ func main() {
 	}
 
 	if info.IsDir() {
-		batch.ProcessDirectory(*inputPath, *outDir, *targetFormat, *quality, *recursive)
+		batch.ProcessDirectory(*inputPath, *outDir, *targetFormat, *quality, *recursive, *width, *height)
 	} else {
-		err := converter.ProcessImage(*inputPath, *outDir, *targetFormat, *quality)
+		err := converter.ProcessImage(*inputPath, *outDir, *targetFormat, *quality, *width, *height)
 		if err != nil {
 			fmt.Printf("Error processing file: %v\n", err)
 		}
