@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 
@@ -45,10 +46,24 @@ func main() {
 }
 
 func processDirectory(dirPath string, outDir string, targetFormat string, quality int) {
+	fmt.Printf("Scanning directory: %s\n", dirPath)
+	jobs := make(chan string, 100)
 	var wg sync.WaitGroup
 
-	fmt.Printf("Scanning directory: %s\n", dirPath)
+	numWorkers := runtime.NumCPU() //optimal number of workers based on hardware
+	fmt.Printf("Initialising worker pool with %d concurrent threads...\n", numWorkers)
+	for i := 0; i < numWorkers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			//worker constantly pulls from channel until it is closed
+			for path := range jobs {
+				converter.ProcessImage(path, outDir, targetFormat, quality)
+			}
+		}()
+	}
 
+	//walk directory and push valid files into jobs
 	err := filepath.WalkDir(dirPath, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -58,16 +73,9 @@ func processDirectory(dirPath string, outDir string, targetFormat string, qualit
 			return filepath.SkipDir
 		}
 
-		//process supported image files
 		ext := strings.ToLower(filepath.Ext(path))
 		if format.IsSupported(ext) {
-			wg.Add(1)
-
-			//goroutine for each file
-			go func(p string) {
-				defer wg.Done()
-				converter.ProcessImage(p, outDir, targetFormat, quality)
-			}(path)
+			jobs <- path //send the file path into the queue
 		}
 
 		return nil
@@ -77,6 +85,7 @@ func processDirectory(dirPath string, outDir string, targetFormat string, qualit
 		fmt.Printf("Error reading directory: %v\n", err)
 	}
 
+	close(jobs)
 	wg.Wait()
 	fmt.Println("Batch processing complete.")
 }
