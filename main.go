@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"goformat/converter"
+	"goformat/format"
 )
 
 func main() {
@@ -59,7 +60,7 @@ func processDirectory(dirPath string, outDir string, targetFormat string, qualit
 
 		//process supported image files
 		ext := strings.ToLower(filepath.Ext(path))
-		if ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".webp" {
+		if format.IsSupported(ext) {
 			wg.Add(1)
 
 			//goroutine for each file
