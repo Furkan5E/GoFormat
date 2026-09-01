@@ -7,8 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"golang.org/x/image/draw"
 	"goformat/format"
+
+	"golang.org/x/image/draw"
 )
 
 func ProcessImage(inputPath string, outDir string, outFormat string, quality int, targetWidth int, targetHeight int) error {
@@ -17,6 +18,9 @@ func ProcessImage(inputPath string, outDir string, outFormat string, quality int
 	if err != nil {
 		return err
 	}
+
+	//extract historical metadata
+	meta := extractMetadata(inputPath)
 
 	img, err := loadImage(inputPath)
 	if err != nil {
@@ -34,7 +38,15 @@ func ProcessImage(inputPath string, outDir string, outFormat string, quality int
 		return fmt.Errorf("failed to save %s: %v", outPath, err)
 	}
 
-	fmt.Printf("Success! Saved converted file as: %s\n", outPath)
+	//reinject metadata
+	if meta.HasMetadata {
+		err = os.Chtimes(outPath, meta.Timestamp, meta.Timestamp)
+		if err != nil {
+			fmt.Printf("Warning: Failed to preserve timestamp for %s\n", outPath)
+		}
+	}
+
+	fmt.Printf("Saved converted file as: %s\n", outPath)
 	return nil
 }
 
@@ -52,7 +64,6 @@ func resizeImage(src image.Image, targetW, targetH int) image.Image {
 
 	dst := image.NewRGBA(image.Rect(0, 0, targetW, targetH))
 	
-	// BiLinear interpolation provides high quality scaling suitable for game assets
 	draw.BiLinear.Scale(dst, dst.Bounds(), src, bounds, draw.Over, nil)
 	return dst
 }
