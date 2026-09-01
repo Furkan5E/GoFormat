@@ -13,12 +13,20 @@ import (
 
 func main() {
 	inputPath := flag.String("i", "", "Path to the input image or directory (required)")
+	outDir := flag.String("o", "output", "Path to the output directory")
 	targetFormat := flag.String("f", "jpeg", "Target format: jpeg, png, webp")
 	quality := flag.Int("q", 85, "Compression quality for jpeg/webp (1-100)")
 	flag.Parse()
 
 	if *inputPath == "" {
 		fmt.Println("Error: Input path is required. Use -i <path>")
+		return
+	}
+
+	//create output directory if does not exist
+	err := os.MkdirAll(*outDir, os.ModePerm)
+	if err != nil {
+		fmt.Printf("Error creating output directory: %v\n", err)
 		return
 	}
 
@@ -29,13 +37,13 @@ func main() {
 	}
 
 	if info.IsDir() {
-		processDirectory(*inputPath, *targetFormat, *quality)
+		processDirectory(*inputPath, *outDir, *targetFormat, *quality)
 	} else {
-		converter.ProcessImage(*inputPath, *targetFormat, *quality)
+		converter.ProcessImage(*inputPath, *outDir, *targetFormat, *quality)
 	}
 }
 
-func processDirectory(dirPath string, targetFormat string, quality int) {
+func processDirectory(dirPath string, outDir string, targetFormat string, quality int) {
 	var wg sync.WaitGroup
 
 	fmt.Printf("Scanning directory: %s\n", dirPath)
@@ -52,12 +60,12 @@ func processDirectory(dirPath string, targetFormat string, quality int) {
 		//process supported image files
 		ext := strings.ToLower(filepath.Ext(path))
 		if ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".webp" {
-			wg.Add(1) // Increment the wait group counter
+			wg.Add(1)
 
 			//goroutine for each file
 			go func(p string) {
 				defer wg.Done()
-				converter.ProcessImage(p, targetFormat, quality)
+				converter.ProcessImage(p, outDir, targetFormat, quality)
 			}(path)
 		}
 
@@ -68,6 +76,6 @@ func processDirectory(dirPath string, targetFormat string, quality int) {
 		fmt.Printf("Error reading directory: %v\n", err)
 	}
 
-	wg.Wait() //block main thread until all goroutines call Done()
+	wg.Wait()
 	fmt.Println("Batch processing complete.")
 }

@@ -10,7 +10,7 @@ import (
 	"goformat/format"
 )
 
-func ProcessImage(inputPath string, outFormat string, quality int) {
+func ProcessImage(inputPath string, outDir string, outFormat string, quality int) {
 	outFormat = strings.ToLower(outFormat)
 	enc, err := format.GetEncoder(outFormat)
 	if err != nil {
@@ -24,7 +24,7 @@ func ProcessImage(inputPath string, outFormat string, quality int) {
 		return
 	}
 
-	outPath := generateOutputPath(inputPath, outFormat)
+	outPath := generateOutputPath(inputPath, outDir, outFormat)
 
 	err = saveImage(img, outPath, enc, quality)
 	if err != nil {
@@ -46,10 +46,11 @@ func loadImage(path string) (image.Image, error) {
 	return img, err
 }
 
-func generateOutputPath(inputPath, targetFormat string) string {
+func generateOutputPath(inputPath, outDir, targetFormat string) string {
 	ext := filepath.Ext(inputPath)
 	baseName := strings.TrimSuffix(filepath.Base(inputPath), ext)
-	return fmt.Sprintf("%s_converted.%s", baseName, targetFormat)
+	fileName := fmt.Sprintf("%s.%s", baseName, targetFormat)
+	return filepath.Join(outDir, fileName)
 }
 
 func saveImage(img image.Image, path string, enc format.Encoder, quality int) error {
