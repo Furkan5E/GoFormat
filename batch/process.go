@@ -12,7 +12,7 @@ import (
 	"goformat/format"
 )
 
-func ProcessDirectory(dirPath string, outDir string, targetFormat string, quality int) {
+func ProcessDirectory(dirPath string, outDir string, targetFormat string, quality int, recursive bool) {
 	fmt.Printf("Scanning directory: %s\n", dirPath)
 	jobs := make(chan string, 100)
 	var wg sync.WaitGroup
@@ -44,12 +44,13 @@ func ProcessDirectory(dirPath string, outDir string, targetFormat string, qualit
 			return err
 		}
 
-		if d.IsDir() && path != dirPath {
+		//skip subdirectories if recursive flag is false
+		if !recursive && d.IsDir() && path != dirPath {
 			return filepath.SkipDir
 		}
 
 		ext := strings.ToLower(filepath.Ext(path))
-		if format.IsSupported(ext) {
+		if !d.IsDir() && format.IsSupported(ext) {
 			jobs <- path //send the file path into the queue
 		}
 
