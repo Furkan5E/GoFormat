@@ -37,6 +37,9 @@ func main() {
 	if info.IsDir() {
 		batch.ProcessDirectory(*inputPath, *outDir, *targetFormat, *quality)
 	} else {
-		converter.ProcessImage(*inputPath, *outDir, *targetFormat, *quality)
+		err := converter.ProcessImage(*inputPath, *outDir, *targetFormat, *quality)
+		if err != nil {
+			fmt.Printf("Error processing file: %v\n", err)
+		}
 	}
 }

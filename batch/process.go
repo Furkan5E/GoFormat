@@ -17,6 +17,9 @@ func ProcessDirectory(dirPath string, outDir string, targetFormat string, qualit
 	jobs := make(chan string, 100)
 	var wg sync.WaitGroup
 
+	var errMu sync.Mutex
+	var failedJobs []string
+
 	numWorkers := runtime.NumCPU() //optimal number of workers based on hardware
 	fmt.Printf("Initialising worker pool with %d concurrent threads...\n", numWorkers)
 	for i := 0; i < numWorkers; i++ {
@@ -25,7 +28,12 @@ func ProcessDirectory(dirPath string, outDir string, targetFormat string, qualit
 			defer wg.Done()
 			//worker constantly pulls from channel until it is closed
 			for path := range jobs {
-				converter.ProcessImage(path, outDir, targetFormat, quality)
+				err := converter.ProcessImage(path, outDir, targetFormat, quality)
+				if err != nil {
+					errMu.Lock()
+					failedJobs = append(failedJobs, err.Error())
+					errMu.Unlock()
+				}
 			}
 		}()
 	}
@@ -54,5 +62,14 @@ func ProcessDirectory(dirPath string, outDir string, targetFormat string, qualit
 
 	close(jobs)
 	wg.Wait()
-	fmt.Println("Batch processing complete.")
+
+	fmt.Println("\n=== Batch Processing Report ===")
+	if len(failedJobs) > 0 {
+		fmt.Printf("Completed with %d errors:\n", len(failedJobs))
+		for _, errMsg := range failedJobs {
+			fmt.Printf("  x %s\n", errMsg)
+		}
+	} else {
+		fmt.Println("All files processed successfully with zero errors.")
+	}
 }

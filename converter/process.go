@@ -10,29 +10,27 @@ import (
 	"goformat/format"
 )
 
-func ProcessImage(inputPath string, outDir string, outFormat string, quality int) {
+func ProcessImage(inputPath string, outDir string, outFormat string, quality int) error {
 	outFormat = strings.ToLower(outFormat)
 	enc, err := format.GetEncoder(outFormat)
 	if err != nil {
-		fmt.Println(err)
-		return
+		return err
 	}
 
 	img, err := loadImage(inputPath)
 	if err != nil {
-		fmt.Printf("Failed to load image: %v\n", err)
-		return
+		return fmt.Errorf("failed to load %s: %v", inputPath, err)
 	}
 
 	outPath := generateOutputPath(inputPath, outDir, outFormat)
 
 	err = saveImage(img, outPath, enc, quality)
 	if err != nil {
-		fmt.Printf("Failed to save image: %v\n", err)
-		return
+		return fmt.Errorf("failed to save %s: %v", outPath, err)
 	}
 
 	fmt.Printf("Success! Saved converted file as: %s\n", outPath)
+	return nil
 }
 
 func loadImage(path string) (image.Image, error) {
