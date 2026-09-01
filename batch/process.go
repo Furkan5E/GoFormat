@@ -12,9 +12,14 @@ import (
 	"goformat/format"
 )
 
+type Job struct {
+	InputPath string
+	OutputDir string
+}
+
 func ProcessDirectory(dirPath string, outDir string, targetFormat string, quality int, recursive bool) {
 	fmt.Printf("Scanning directory: %s\n", dirPath)
-	jobs := make(chan string, 100)
+	jobs := make(chan Job, 100)
 	var wg sync.WaitGroup
 
 	var errMu sync.Mutex
@@ -27,8 +32,8 @@ func ProcessDirectory(dirPath string, outDir string, targetFormat string, qualit
 		go func() {
 			defer wg.Done()
 			//worker constantly pulls from channel until it is closed
-			for path := range jobs {
-				err := converter.ProcessImage(path, outDir, targetFormat, quality)
+			for job := range jobs {
+				err := converter.ProcessImage(job.InputPath, job.OutputDir, targetFormat, quality)
 				if err != nil {
 					errMu.Lock()
 					failedJobs = append(failedJobs, err.Error())
@@ -44,14 +49,28 @@ func ProcessDirectory(dirPath string, outDir string, targetFormat string, qualit
 			return err
 		}
 
-		//skip subdirectories if recursive flag is false
-		if !recursive && d.IsDir() && path != dirPath {
-			return filepath.SkipDir
+		if d.IsDir() {
+			//skip subdirectories if recursive flag is false
+			if !recursive && path != dirPath {
+				return filepath.SkipDir
+			}
+			
+			//recreate target directory structure inside output folder
+			relPath, relErr := filepath.Rel(dirPath, path)
+			if relErr == nil {
+				targetDir := filepath.Join(outDir, relPath)
+				os.MkdirAll(targetDir, os.ModePerm)
+			}
+			return nil
 		}
 
 		ext := strings.ToLower(filepath.Ext(path))
-		if !d.IsDir() && format.IsSupported(ext) {
-			jobs <- path //send the file path into the queue
+		if format.IsSupported(ext) {
+			//calculate output directory for file
+			relPath, _ := filepath.Rel(dirPath, filepath.Dir(path))
+			targetDir := filepath.Join(outDir, relPath)
+			
+			jobs <- Job{InputPath: path, OutputDir: targetDir}
 		}
 
 		return nil
