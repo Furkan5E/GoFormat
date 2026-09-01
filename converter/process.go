@@ -6,13 +6,18 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"context"
 
 	"goformat/format"
 
 	"golang.org/x/image/draw"
 )
 
-func ProcessImage(inputPath string, outDir string, outFormat string, quality int, targetWidth int, targetHeight int) error {
+func ProcessImage(ctx context.Context, inputPath string, outDir string, outFormat string, quality int, targetWidth int, targetHeight int) error {
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+	
 	outFormat = strings.ToLower(outFormat)
 	enc, err := format.GetEncoder(outFormat)
 	if err != nil {

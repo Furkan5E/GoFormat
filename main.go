@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"goformat/batch"
 	"goformat/converter"
@@ -37,10 +40,13 @@ func main() {
 		return
 	}
 
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+
 	if info.IsDir() {
-		batch.ProcessDirectory(*inputPath, *outDir, *targetFormat, *quality, *recursive, *width, *height)
+		batch.ProcessDirectory(ctx, *inputPath, *outDir, *targetFormat, *quality, *recursive, *width, *height)
 	} else {
-		err := converter.ProcessImage(*inputPath, *outDir, *targetFormat, *quality, *width, *height)
+		err := converter.ProcessImage(ctx, *inputPath, *outDir, *targetFormat, *quality, *width, *height)
 		if err != nil {
 			fmt.Printf("Error processing file: %v\n", err)
 		}

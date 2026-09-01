@@ -1,6 +1,7 @@
 package batch
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -17,7 +18,7 @@ type Job struct {
 	OutputDir string
 }
 
-func ProcessDirectory(dirPath string, outDir string, targetFormat string, quality int, recursive bool, width int, height int) {
+func ProcessDirectory(ctx context.Context, dirPath string, outDir string, targetFormat string, quality int, recursive bool, width int, height int) {
 	fmt.Printf("Scanning directory: %s\n", dirPath)
 	jobs := make(chan Job, 100)
 	var wg sync.WaitGroup
@@ -25,15 +26,22 @@ func ProcessDirectory(dirPath string, outDir string, targetFormat string, qualit
 	var errMu sync.Mutex
 	var failedJobs []string
 
-	numWorkers := runtime.NumCPU() //optimal number of workers based on hardware
+	numWorkers := runtime.NumCPU()
 	fmt.Printf("Initialising worker pool with %d concurrent threads...\n", numWorkers)
+	
 	for i := 0; i < numWorkers; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			//worker constantly pulls from channel until it is closed
 			for job := range jobs {
-				err := converter.ProcessImage(job.InputPath, job.OutputDir, targetFormat, quality, width, height)
+				select {
+				case <-ctx.Done():
+					return //exit goroutine
+				default:
+				}
+
+				err := converter.ProcessImage(ctx, job.InputPath, job.OutputDir, targetFormat, quality, width, height)
 				if err != nil {
 					errMu.Lock()
 					failedJobs = append(failedJobs, err.Error())
@@ -47,6 +55,10 @@ func ProcessDirectory(dirPath string, outDir string, targetFormat string, qualit
 	err := filepath.WalkDir(dirPath, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
+		}
+
+		if ctx.Err() != nil {
+			return ctx.Err()
 		}
 
 		if d.IsDir() {
@@ -76,7 +88,7 @@ func ProcessDirectory(dirPath string, outDir string, targetFormat string, qualit
 		return nil
 	})
 
-	if err != nil {
+	if err != nil && err != context.Canceled {
 		fmt.Printf("Error reading directory: %v\n", err)
 	}
 
@@ -84,12 +96,15 @@ func ProcessDirectory(dirPath string, outDir string, targetFormat string, qualit
 	wg.Wait()
 
 	fmt.Println("\n=== Batch Processing Report ===")
+	if ctx.Err() != nil {
+		fmt.Println("Process was cancelled. Partial results saved.")
+	}
 	if len(failedJobs) > 0 {
 		fmt.Printf("Completed with %d errors:\n", len(failedJobs))
 		for _, errMsg := range failedJobs {
 			fmt.Printf("  x %s\n", errMsg)
 		}
-	} else {
+	} else if ctx.Err() == nil {
 		fmt.Println("All files processed successfully with zero errors.")
 	}
 }
