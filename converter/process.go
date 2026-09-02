@@ -33,7 +33,10 @@ func ProcessImage(ctx context.Context, inputPath string, outDir string, outForma
 	}
 
 	if targetWidth > 0 || targetHeight > 0 {
-		img = resizeImage(img, targetWidth, targetHeight)
+		img, err = resizeImage(img, targetWidth, targetHeight)
+		if err != nil {
+			return fmt.Errorf("failed to resize %s: %v", inputPath, err)
+		}
 	}
 
 	outPath := generateOutputPath(inputPath, outDir, outFormat)
@@ -55,7 +58,7 @@ func ProcessImage(ctx context.Context, inputPath string, outDir string, outForma
 	return nil
 }
 
-func resizeImage(src image.Image, targetW, targetH int) image.Image {
+func resizeImage(src image.Image, targetW, targetH int) (image.Image, error) {
 	bounds := src.Bounds()
 	origW := bounds.Dx()
 	origH := bounds.Dy()
@@ -67,10 +70,16 @@ func resizeImage(src image.Image, targetW, targetH int) image.Image {
 		targetH = (origH * targetW) / origW
 	}
 
+	//prevent massive allocations
+	const maxDim = 16384
+	if targetW > maxDim || targetH > maxDim {
+		return nil, fmt.Errorf("target resolution %dx%d exceeds maximum limit of %d", targetW, targetH, maxDim)
+	}
+
 	dst := image.NewRGBA(image.Rect(0, 0, targetW, targetH))
 	
 	draw.BiLinear.Scale(dst, dst.Bounds(), src, bounds, draw.Over, nil)
-	return dst
+	return dst, nil
 }
 
 func loadImage(path string) (image.Image, error) {
