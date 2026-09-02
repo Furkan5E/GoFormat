@@ -15,6 +15,7 @@ var supportedExtensions = map[string]bool{
 	".jpeg": true,
 	".png":  true,
 	".webp": true,
+	".tiff": true,
 }
 
 func IsSupported(ext string) bool {
@@ -29,6 +30,8 @@ func GetEncoder(ext string) (Encoder, error) {
 		return PngEncoder{}, nil
 	case "webp":
 		return WebpEncoder{}, nil
+	case "tiff", "tif":
+		return TiffEncoder{}, nil
 	default:
 		return nil, fmt.Errorf("error: unsupported output format '%s'", ext)
 	}
