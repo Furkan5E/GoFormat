@@ -13,7 +13,7 @@ import (
 	"golang.org/x/image/draw"
 )
 
-func ProcessImage(ctx context.Context, inputPath string, outDir string, outFormat string, quality int, targetWidth int, targetHeight int) error {
+func ProcessImage(ctx context.Context, inputPath string, outDir string, outFormat string, quality int, targetWidth int, targetHeight int, pixelart bool) error {
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
@@ -33,7 +33,7 @@ func ProcessImage(ctx context.Context, inputPath string, outDir string, outForma
 	}
 
 	if targetWidth > 0 || targetHeight > 0 {
-		img, err = resizeImage(img, targetWidth, targetHeight)
+		img, err = resizeImage(img, targetWidth, targetHeight, pixelart)
 		if err != nil {
 			return fmt.Errorf("failed to resize %s: %v", inputPath, err)
 		}
@@ -58,7 +58,7 @@ func ProcessImage(ctx context.Context, inputPath string, outDir string, outForma
 	return nil
 }
 
-func resizeImage(src image.Image, targetW, targetH int) (image.Image, error) {
+func resizeImage(src image.Image, targetW, targetH int, pixelart bool) (image.Image, error) {
 	bounds := src.Bounds()
 	origW := bounds.Dx()
 	origH := bounds.Dy()
@@ -78,7 +78,12 @@ func resizeImage(src image.Image, targetW, targetH int) (image.Image, error) {
 
 	dst := image.NewRGBA(image.Rect(0, 0, targetW, targetH))
 	
-	draw.BiLinear.Scale(dst, dst.Bounds(), src, bounds, draw.Over, nil)
+	if pixelart {
+		draw.NearestNeighbor.Scale(dst, dst.Bounds(), src, bounds, draw.Over, nil)
+	} else {
+		draw.BiLinear.Scale(dst, dst.Bounds(), src, bounds, draw.Over, nil)
+	}
+	
 	return dst, nil
 }
 

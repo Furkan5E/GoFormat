@@ -18,7 +18,7 @@ type Job struct {
 	OutputDir string
 }
 
-func ProcessDirectory(ctx context.Context, dirPath string, outDir string, targetFormat string, quality int, recursive bool, width int, height int) {
+func ProcessDirectory(ctx context.Context, dirPath string, outDir string, targetFormat string, quality int, recursive bool, width int, height int, pixelart bool) {
 	fmt.Printf("Scanning directory: %s\n", dirPath)
 	jobs := make(chan Job, 100)
 	var wg sync.WaitGroup
@@ -41,7 +41,7 @@ func ProcessDirectory(ctx context.Context, dirPath string, outDir string, target
 				default:
 				}
 
-				err := converter.ProcessImage(ctx, job.InputPath, job.OutputDir, targetFormat, quality, width, height)
+				err := converter.ProcessImage(ctx, job.InputPath, job.OutputDir, targetFormat, quality, width, height, pixelart)
 				if err != nil {
 					errMu.Lock()
 					failedJobs = append(failedJobs, err.Error())
