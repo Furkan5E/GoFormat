@@ -1,0 +1,28 @@
+name: Build GoFormat
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.21'
+        
+    - name: Build Windows Binary
+      run: GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o bin/goformat-windows-amd64.exe main.go
+
+    - name: Build Linux Binary
+      run: GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o bin/goformat-linux-amd64 main.go
+
+    - name: Build macOS Binary (Apple Silicon)
+      run: GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o bin/goformat-macos-arm64 main.go
