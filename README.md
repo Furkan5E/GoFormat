@@ -37,7 +37,7 @@ go run main.go -i source.png -f jpg
 ```
 Batch process a directory:
 ```bash
-go run main.go -i pictures -f tiff -w 1920 -h 1080
+go run main.go -i pictures -f tiff -width 1920 -height 1080
 ```
 
 ## Compilation
@@ -52,11 +52,11 @@ Convert a single image:
 ```
 Batch process a directory:
 ```bash
-.\goformat.exe -i pictures -f webp -q 80 -w 1920
+.\goformat.exe -i pictures -f webp -q 80 -width 1920
 ```
 Upscale 2D assets:
 ```bash
-.\goformat.exe -i sprites -o assets -f png -w 1024 -pixel
+.\goformat.exe -i sprites -o assets -f png -width 1024 -pixel
 ```
 ## Command Line Flags
 
@@ -66,7 +66,7 @@ Upscale 2D assets:
 | `-o` | Path to the output directory | `output` |
 | `-f` | Target format (`jpeg`, `png`, `webp`, `tiff`, `bmp`, `gif`) | `jpeg` |
 | `-q` | Compression quality for applicable formats (1 to 100) | `85` |
-| `-w` | Target width in pixels (0 to keep original) | `0` |
-| `-h` | Target height in pixels (0 to keep original) | `0` |
+| `-width` | Target width in pixels (0 to keep original) | `0` |
+| `-height` | Target height in pixels (0 to keep original) | `0` |
 | `-pixel` | Use nearest neighbour scaling to preserve pixel edges | `false` |
 | `-r` | Process subdirectories recursively | `false` |

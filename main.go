@@ -18,8 +18,8 @@ func main() {
 	targetFormat := flag.String("f", "jpeg", "Target format: jpeg, png, webp")
 	quality := flag.Int("q", 85, "Compression quality for jpeg/webp (1-100)")
 	recursive := flag.Bool("r", false, "Process subdirectories recursively")
-	width := flag.Int("w", 0, "Target width in pixels (0 to keep original)")
-	height := flag.Int("h", 0, "Target height in pixels (0 to keep original)")
+	width := flag.Int("width", 0, "Target width in pixels (0 to keep original)")
+	height := flag.Int("height", 0, "Target height in pixels (0 to keep original)")
 	pixelart := flag.Bool("pixel", false, "Use nearest neighbour scaling to preserve pixel edges")
 	flag.Parse()
 
