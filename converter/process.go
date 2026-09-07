@@ -19,37 +19,43 @@ func ProcessImage(ctx context.Context, inputPath string, outDir string, outForma
 	}
 	
 	outFormat = strings.ToLower(outFormat)
-	enc, err := format.GetEncoder(outFormat)
-	if err != nil {
-		return err
-	}
+	ext := strings.ToLower(filepath.Ext(inputPath))
 
 	//extract historical metadata
 	meta := extractMetadata(inputPath)
-
-	img, err := loadImage(inputPath)
-	if err != nil {
-		return fmt.Errorf("failed to load %s: %v", inputPath, err)
-	}
-
-	if targetWidth > 0 || targetHeight > 0 {
-		img, err = resizeImage(img, targetWidth, targetHeight, pixelart)
-		if err != nil {
-			return fmt.Errorf("failed to resize %s: %v", inputPath, err)
-		}
-	}
-
 	outPath := generateOutputPath(inputPath, outDir, outFormat)
 
-	err = saveImage(img, outPath, enc, quality)
-	if err != nil {
-		return fmt.Errorf("failed to save %s: %v", outPath, err)
+	if ext == ".gif" && outFormat == "gif" {
+		//keep every frame instead of collapsing the animation to a single image
+		if err := processGIFToGIF(inputPath, outPath, targetWidth, targetHeight, pixelart); err != nil {
+			return fmt.Errorf("failed to process %s: %v", inputPath, err)
+		}
+	} else {
+		enc, err := format.GetEncoder(outFormat)
+		if err != nil {
+			return err
+		}
+
+		img, err := loadImage(inputPath)
+		if err != nil {
+			return fmt.Errorf("failed to load %s: %v", inputPath, err)
+		}
+
+		if targetWidth > 0 || targetHeight > 0 {
+			img, err = resizeImage(img, targetWidth, targetHeight, pixelart)
+			if err != nil {
+				return fmt.Errorf("failed to resize %s: %v", inputPath, err)
+			}
+		}
+
+		if err := saveImage(img, outPath, enc, quality); err != nil {
+			return fmt.Errorf("failed to save %s: %v", outPath, err)
+		}
 	}
 
 	//reinject metadata
 	if meta.HasMetadata {
-		err = os.Chtimes(outPath, meta.Timestamp, meta.Timestamp)
-		if err != nil {
+		if err := os.Chtimes(outPath, meta.Timestamp, meta.Timestamp); err != nil {
 			fmt.Printf("Warning: Failed to preserve timestamp for %s\n", outPath)
 		}
 	}
