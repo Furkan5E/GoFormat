@@ -69,6 +69,11 @@ func resizeImage(src image.Image, targetW, targetH int, pixelart bool) (image.Im
 	origW := bounds.Dx()
 	origH := bounds.Dy()
 
+	//empty images are valid for some decoders (e.g. bmp) but cannot be scaled
+	if origW == 0 || origH == 0 {
+		return nil, fmt.Errorf("cannot resize empty %dx%d image", origW, origH)
+	}
+
 	if targetW == 0 {
 		targetW = (origW * targetH) / origH
 	}
