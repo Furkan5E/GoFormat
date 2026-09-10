@@ -1,6 +1,6 @@
 # GoFormat
 
-![Go Version](https://img.shields.io/badge/Go-1.21%2B-00ADD8?logo=go)
+![Go Version](https://img.shields.io/badge/Go-1.27%2B-00ADD8?logo=go)
 ![Platform](https://img.shields.io/badge/Platform-windows%20%7C%20macos%20%7C%20linux-lightgrey)
 ![Licence](https://img.shields.io/badge/License-MIT-blue)
 [![Build Status](https://github.com/Furkan5E/GoFormat/actions/workflows/build.yaml/badge.svg)](https://github.com/Furkan5E/GoFormat/actions/workflows/build.yaml)
