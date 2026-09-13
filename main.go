@@ -41,6 +41,11 @@ func run() int {
 		return exitUsage
 	}
 
+	if *width < 0 || *height < 0 {
+		fmt.Println("Error: -width and -height cannot be negative")
+		return exitUsage
+	}
+
 	//create output directory if does not exist
 	err := os.MkdirAll(*outDir, os.ModePerm)
 	if err != nil {

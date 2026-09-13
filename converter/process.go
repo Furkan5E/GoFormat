@@ -74,11 +74,12 @@ func resizeImage(src image.Image, targetW, targetH int, pixelart bool) (image.Im
 		return nil, fmt.Errorf("cannot resize empty %dx%d image", origW, origH)
 	}
 
+	//keep aspect ratio, rounding to nearest and never below 1px so thin images stay encodable
 	if targetW == 0 {
-		targetW = (origW * targetH) / origH
+		targetW = max(1, (origW*targetH+origH/2)/origH)
 	}
 	if targetH == 0 {
-		targetH = (origH * targetW) / origW
+		targetH = max(1, (origH*targetW+origW/2)/origW)
 	}
 
 	//prevent massive allocations
