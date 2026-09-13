@@ -70,3 +70,12 @@ Upscale 2D assets:
 | `-height` | Target height in pixels (0 to keep original) | `0` |
 | `-pixel` | Use nearest neighbour scaling to preserve pixel edges | `false` |
 | `-r` | Process subdirectories recursively | `false` |
+
+## Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| `0` | All files converted successfully |
+| `1` | One or more files failed, or the input/output path could not be used |
+| `2` | Invalid usage, such as a missing `-i` |
+| `130` | Interrupted with Ctrl+C before finishing |

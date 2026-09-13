@@ -12,7 +12,20 @@ import (
 	"goformat/converter"
 )
 
+//exit codes
+const (
+	exitOK          = 0
+	exitFailure     = 1
+	exitUsage       = 2
+	exitInterrupted = 130
+)
+
 func main() {
+	os.Exit(run())
+}
+
+//run is separate from main so deferred calls finish before os.Exit
+func run() int {
 	inputPath := flag.String("i", "", "Path to the input image or directory (required)")
 	outDir := flag.String("o", "output", "Path to the output directory")
 	targetFormat := flag.String("f", "jpeg", "Target format: jpeg, png, webp")
@@ -25,31 +38,39 @@ func main() {
 
 	if *inputPath == "" {
 		fmt.Println("Error: Input path is required. Use -i <path>")
-		return
+		return exitUsage
 	}
 
 	//create output directory if does not exist
 	err := os.MkdirAll(*outDir, os.ModePerm)
 	if err != nil {
 		fmt.Printf("Error creating output directory: %v\n", err)
-		return
+		return exitFailure
 	}
 
 	info, err := os.Stat(*inputPath)
 	if err != nil {
 		fmt.Printf("Error accessing input path: %v\n", err)
-		return
+		return exitFailure
 	}
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
 	if info.IsDir() {
-		batch.ProcessDirectory(ctx, *inputPath, *outDir, *targetFormat, *quality, *recursive, *width, *height, *pixelart)
+		err = batch.ProcessDirectory(ctx, *inputPath, *outDir, *targetFormat, *quality, *recursive, *width, *height, *pixelart)
 	} else {
-		err := converter.ProcessImage(ctx, *inputPath, *outDir, *targetFormat, *quality, *width, *height, *pixelart)
+		err = converter.ProcessImage(ctx, *inputPath, *outDir, *targetFormat, *quality, *width, *height, *pixelart)
 		if err != nil {
 			fmt.Printf("Error processing file: %v\n", err)
 		}
 	}
+
+	switch {
+	case ctx.Err() != nil:
+		return exitInterrupted
+	case err != nil:
+		return exitFailure
+	}
+	return exitOK
 }

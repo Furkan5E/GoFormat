@@ -18,7 +18,7 @@ type Job struct {
 	OutputDir string
 }
 
-func ProcessDirectory(ctx context.Context, dirPath string, outDir string, targetFormat string, quality int, recursive bool, width int, height int, pixelart bool) {
+func ProcessDirectory(ctx context.Context, dirPath string, outDir string, targetFormat string, quality int, recursive bool, width int, height int, pixelart bool) error {
 	fmt.Printf("Scanning directory: %s\n", dirPath)
 	jobs := make(chan Job, 100)
 	var wg sync.WaitGroup
@@ -88,8 +88,10 @@ func ProcessDirectory(ctx context.Context, dirPath string, outDir string, target
 		return nil
 	})
 
+	var walkErr error
 	if err != nil && err != context.Canceled {
 		fmt.Printf("Error reading directory: %v\n", err)
+		walkErr = err
 	}
 
 	close(jobs)
@@ -104,7 +106,17 @@ func ProcessDirectory(ctx context.Context, dirPath string, outDir string, target
 		for _, errMsg := range failedJobs {
 			fmt.Printf("  x %s\n", errMsg)
 		}
-	} else if ctx.Err() == nil {
+	} else if ctx.Err() == nil && walkErr == nil {
 		fmt.Println("All files processed successfully with zero errors.")
 	}
+
+	switch {
+	case ctx.Err() != nil:
+		return ctx.Err()
+	case walkErr != nil:
+		return walkErr
+	case len(failedJobs) > 0:
+		return fmt.Errorf("%d files failed", len(failedJobs))
+	}
+	return nil
 }
