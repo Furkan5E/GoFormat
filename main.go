@@ -46,6 +46,11 @@ func run() int {
 		return exitUsage
 	}
 
+	if *quality < 1 || *quality > 100 {
+		fmt.Println("Error: -q must be between 1 and 100")
+		return exitUsage
+	}
+
 	//create output directory if does not exist
 	err := os.MkdirAll(*outDir, os.ModePerm)
 	if err != nil {
