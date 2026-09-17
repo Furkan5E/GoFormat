@@ -17,10 +17,10 @@ A high performance, concurrent command-line image processing utility written in 
 * **Pixel Art Support:** Upscale pixel art and low-resolution graphics using nearest-neighbour scaling to preserve edges without blurring.
 
 ## Supported Formats
-* `.jpeg`
+* `.jpeg` / `.jpg`
 * `.png`
 * `.webp`
-* `.tiff`
+* `.tiff` / `.tif`
 * `.bmp`
 * `.gif`
 

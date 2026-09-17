@@ -16,6 +16,7 @@ var supportedExtensions = map[string]bool{
 	".png":  true,
 	".webp": true,
 	".tiff": true,
+	".tif":  true,
 	".bmp":  true,
 	".gif":  true,
 }
