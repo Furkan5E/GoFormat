@@ -51,6 +51,9 @@ func ProcessDirectory(ctx context.Context, dirPath string, outDir string, target
 		}()
 	}
 
+	//output folder may sit inside the input folder (e.g. -i . -o output)
+	outInfo, _ := os.Stat(outDir)
+
 	//walk directory and push valid files into jobs
 	err := filepath.WalkDir(dirPath, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
@@ -66,7 +69,14 @@ func ProcessDirectory(ctx context.Context, dirPath string, outDir string, target
 			if !recursive && path != dirPath {
 				return filepath.SkipDir
 			}
-			
+
+			//never walk into our own output, or earlier results get converted again
+			if path != dirPath && outInfo != nil {
+				if info, statErr := os.Stat(path); statErr == nil && os.SameFile(info, outInfo) {
+					return filepath.SkipDir
+				}
+			}
+
 			//recreate target directory structure inside output folder
 			relPath, relErr := filepath.Rel(dirPath, path)
 			if relErr == nil {
