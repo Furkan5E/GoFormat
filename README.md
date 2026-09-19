@@ -70,6 +70,7 @@ Upscale 2D assets:
 | `-height` | Target height in pixels (0 to keep original) | `0` |
 | `-pixel` | Use nearest neighbour scaling to preserve pixel edges | `false` |
 | `-r` | Process subdirectories recursively | `false` |
+| `-workers` | Number of images to convert at once in batch mode | CPU cores |
 
 ## Exit Codes
 

@@ -6,10 +6,13 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"runtime"
+	"strings"
 	"syscall"
 
 	"goformat/batch"
 	"goformat/converter"
+	"goformat/format"
 )
 
 //exit codes
@@ -28,12 +31,13 @@ func main() {
 func run() int {
 	inputPath := flag.String("i", "", "Path to the input image or directory (required)")
 	outDir := flag.String("o", "output", "Path to the output directory")
-	targetFormat := flag.String("f", "jpeg", "Target format: jpeg, png, webp")
+	targetFormat := flag.String("f", "jpeg", "Target format: jpeg, png, webp, tiff, bmp, gif")
 	quality := flag.Int("q", 85, "Compression quality for jpeg/webp (1-100)")
 	recursive := flag.Bool("r", false, "Process subdirectories recursively")
 	width := flag.Int("width", 0, "Target width in pixels (0 to keep original)")
 	height := flag.Int("height", 0, "Target height in pixels (0 to keep original)")
 	pixelart := flag.Bool("pixel", false, "Use nearest neighbour scaling to preserve pixel edges")
+	workers := flag.Int("workers", runtime.NumCPU(), "Number of images to convert at once in batch mode")
 	flag.Parse()
 
 	if *inputPath == "" {
@@ -48,6 +52,17 @@ func run() int {
 
 	if *quality < 1 || *quality > 100 {
 		fmt.Println("Error: -q must be between 1 and 100")
+		return exitUsage
+	}
+
+	if *workers < 1 {
+		fmt.Println("Error: -workers must be at least 1")
+		return exitUsage
+	}
+
+	//checked up front so a batch doesn't fail the same way once per file
+	if _, err := format.GetEncoder(strings.ToLower(*targetFormat)); err != nil {
+		fmt.Printf("Error: unsupported output format '%s'\n", *targetFormat)
 		return exitUsage
 	}
 
@@ -68,11 +83,22 @@ func run() int {
 	defer cancel()
 
 	if info.IsDir() {
-		err = batch.ProcessDirectory(ctx, *inputPath, *outDir, *targetFormat, *quality, *recursive, *width, *height, *pixelart)
+		err = batch.ProcessDirectory(ctx, *inputPath, *outDir, batch.Options{
+			Format:    *targetFormat,
+			Quality:   *quality,
+			Width:     *width,
+			Height:    *height,
+			Pixelart:  *pixelart,
+			Recursive: *recursive,
+			Workers:   *workers,
+		})
 	} else {
-		err = converter.ProcessImage(ctx, *inputPath, *outDir, *targetFormat, *quality, *width, *height, *pixelart)
+		var outPath string
+		outPath, err = converter.ProcessImage(ctx, *inputPath, *outDir, *targetFormat, *quality, *width, *height, *pixelart)
 		if err != nil {
 			fmt.Printf("Error processing file: %v\n", err)
+		} else {
+			fmt.Printf("Saved converted file as: %s\n", outPath)
 		}
 	}
 

@@ -13,9 +13,9 @@ import (
 	"golang.org/x/image/draw"
 )
 
-func ProcessImage(ctx context.Context, inputPath string, outDir string, outFormat string, quality int, targetWidth int, targetHeight int, pixelart bool) error {
+func ProcessImage(ctx context.Context, inputPath string, outDir string, outFormat string, quality int, targetWidth int, targetHeight int, pixelart bool) (string, error) {
 	if ctx.Err() != nil {
-		return ctx.Err()
+		return "", ctx.Err()
 	}
 	
 	outFormat = strings.ToLower(outFormat)
@@ -28,28 +28,28 @@ func ProcessImage(ctx context.Context, inputPath string, outDir string, outForma
 	if ext == ".gif" && outFormat == "gif" {
 		//keep every frame instead of collapsing the animation to a single image
 		if err := processGIFToGIF(inputPath, outPath, targetWidth, targetHeight, pixelart); err != nil {
-			return fmt.Errorf("failed to process %s: %v", inputPath, err)
+			return "", fmt.Errorf("failed to process %s: %v", inputPath, err)
 		}
 	} else {
 		enc, err := format.GetEncoder(outFormat)
 		if err != nil {
-			return err
+			return "", err
 		}
 
 		img, err := loadImage(inputPath)
 		if err != nil {
-			return fmt.Errorf("failed to load %s: %v", inputPath, err)
+			return "", fmt.Errorf("failed to load %s: %v", inputPath, err)
 		}
 
 		if targetWidth > 0 || targetHeight > 0 {
 			img, err = resizeImage(img, targetWidth, targetHeight, pixelart)
 			if err != nil {
-				return fmt.Errorf("failed to resize %s: %v", inputPath, err)
+				return "", fmt.Errorf("failed to resize %s: %v", inputPath, err)
 			}
 		}
 
 		if err := saveImage(img, outPath, enc, quality); err != nil {
-			return fmt.Errorf("failed to save %s: %v", outPath, err)
+			return "", fmt.Errorf("failed to save %s: %v", outPath, err)
 		}
 	}
 
@@ -60,8 +60,7 @@ func ProcessImage(ctx context.Context, inputPath string, outDir string, outForma
 		}
 	}
 
-	fmt.Printf("Saved converted file as: %s\n", outPath)
-	return nil
+	return outPath, nil
 }
 
 func resizeImage(src image.Image, targetW, targetH int, pixelart bool) (image.Image, error) {
