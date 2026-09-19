@@ -13,9 +13,16 @@ import (
 	"golang.org/x/image/draw"
 )
 
-func ProcessImage(ctx context.Context, inputPath string, outDir string, outFormat string, quality int, targetWidth int, targetHeight int, pixelart bool) (string, error) {
+//Result describes a successful conversion
+//warnings are returned rather than printed so batch mode can report them without breaking the progress bar
+type Result struct {
+	OutPath  string
+	Warnings []string
+}
+
+func ProcessImage(ctx context.Context, inputPath string, outDir string, outFormat string, quality int, targetWidth int, targetHeight int, pixelart bool) (Result, error) {
 	if ctx.Err() != nil {
-		return "", ctx.Err()
+		return Result{}, ctx.Err()
 	}
 	
 	outFormat = strings.ToLower(outFormat)
@@ -28,39 +35,41 @@ func ProcessImage(ctx context.Context, inputPath string, outDir string, outForma
 	if ext == ".gif" && outFormat == "gif" {
 		//keep every frame instead of collapsing the animation to a single image
 		if err := processGIFToGIF(inputPath, outPath, targetWidth, targetHeight, pixelart); err != nil {
-			return "", fmt.Errorf("failed to process %s: %v", inputPath, err)
+			return Result{}, fmt.Errorf("failed to process %s: %v", inputPath, err)
 		}
 	} else {
 		enc, err := format.GetEncoder(outFormat)
 		if err != nil {
-			return "", err
+			return Result{}, err
 		}
 
 		img, err := loadImage(inputPath)
 		if err != nil {
-			return "", fmt.Errorf("failed to load %s: %v", inputPath, err)
+			return Result{}, fmt.Errorf("failed to load %s: %v", inputPath, err)
 		}
 
 		if targetWidth > 0 || targetHeight > 0 {
 			img, err = resizeImage(img, targetWidth, targetHeight, pixelart)
 			if err != nil {
-				return "", fmt.Errorf("failed to resize %s: %v", inputPath, err)
+				return Result{}, fmt.Errorf("failed to resize %s: %v", inputPath, err)
 			}
 		}
 
 		if err := saveImage(img, outPath, enc, quality); err != nil {
-			return "", fmt.Errorf("failed to save %s: %v", outPath, err)
+			return Result{}, fmt.Errorf("failed to save %s: %v", outPath, err)
 		}
 	}
+
+	res := Result{OutPath: outPath}
 
 	//reinject metadata
 	if meta.HasMetadata {
 		if err := os.Chtimes(outPath, meta.Timestamp, meta.Timestamp); err != nil {
-			fmt.Printf("Warning: Failed to preserve timestamp for %s\n", outPath)
+			res.Warnings = append(res.Warnings, fmt.Sprintf("failed to preserve timestamp for %s: %v", outPath, err))
 		}
 	}
 
-	return outPath, nil
+	return res, nil
 }
 
 func resizeImage(src image.Image, targetW, targetH int, pixelart bool) (image.Image, error) {

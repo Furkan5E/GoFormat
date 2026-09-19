@@ -93,12 +93,15 @@ func run() int {
 			Workers:   *workers,
 		})
 	} else {
-		var outPath string
-		outPath, err = converter.ProcessImage(ctx, *inputPath, *outDir, *targetFormat, *quality, *width, *height, *pixelart)
+		var res converter.Result
+		res, err = converter.ProcessImage(ctx, *inputPath, *outDir, *targetFormat, *quality, *width, *height, *pixelart)
 		if err != nil {
 			fmt.Printf("Error processing file: %v\n", err)
 		} else {
-			fmt.Printf("Saved converted file as: %s\n", outPath)
+			fmt.Printf("Saved converted file as: %s\n", res.OutPath)
+			for _, msg := range res.Warnings {
+				fmt.Printf("Warning: %s\n", msg)
+			}
 		}
 	}
 

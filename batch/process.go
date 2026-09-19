@@ -45,6 +45,7 @@ func ProcessDirectory(ctx context.Context, dirPath string, outDir string, opts O
 
 	var errMu sync.Mutex
 	var failedJobs []string
+	var warnings []string
 
 	if len(jobList) > 0 && ctx.Err() == nil {
 		numWorkers := min(opts.Workers, len(jobList))
@@ -64,13 +65,14 @@ func ProcessDirectory(ctx context.Context, dirPath string, outDir string, opts O
 						return //exit goroutine
 					}
 
-					outPath, err := convert(ctx, job, opts)
+					res, err := convert(ctx, job, opts)
+					errMu.Lock()
 					if err != nil {
-						errMu.Lock()
 						failedJobs = append(failedJobs, err.Error())
-						errMu.Unlock()
 					}
-					bar.finish(outPath, err)
+					warnings = append(warnings, res.Warnings...)
+					errMu.Unlock()
+					bar.finish(res.OutPath, err)
 				}
 			}()
 		}
@@ -95,6 +97,12 @@ func ProcessDirectory(ctx context.Context, dirPath string, outDir string, opts O
 	}
 	if skipped > 0 {
 		fmt.Printf("Skipped %d unsupported files.\n", skipped)
+	}
+	if len(warnings) > 0 {
+		fmt.Printf("%d warnings:\n", len(warnings))
+		for _, msg := range warnings {
+			fmt.Printf("  ! %s\n", msg)
+		}
 	}
 	if len(failedJobs) > 0 {
 		fmt.Printf("Completed with %d errors:\n", len(failedJobs))
@@ -163,10 +171,10 @@ func collectJobs(ctx context.Context, dirPath, outDir string, recursive bool) ([
 	return jobList, skipped, err
 }
 
-func convert(ctx context.Context, job Job, opts Options) (string, error) {
+func convert(ctx context.Context, job Job, opts Options) (converter.Result, error) {
 	//created on demand so folders without images don't leave empty copies behind
 	if err := os.MkdirAll(job.OutputDir, os.ModePerm); err != nil {
-		return "", fmt.Errorf("failed to create %s: %v", job.OutputDir, err)
+		return converter.Result{}, fmt.Errorf("failed to create %s: %v", job.OutputDir, err)
 	}
 	return converter.ProcessImage(ctx, job.InputPath, job.OutputDir, opts.Format, opts.Quality, opts.Width, opts.Height, opts.Pixelart)
 }
