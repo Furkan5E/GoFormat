@@ -1,0 +1,46 @@
+name: Release GoFormat
+
+on:
+  push:
+    tags: [ "v*" ]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      CGO_ENABLED: 0
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: go.mod
+
+    - name: Vet
+      run: go vet ./...
+
+    - name: Test
+      run: go test ./...
+
+    - name: Build Windows Binary
+      run: GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o bin/goformat-windows-amd64.exe main.go
+
+    - name: Build Linux Binary
+      run: GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o bin/goformat-linux-amd64 main.go
+
+    - name: Build macOS Binary (Apple Silicon)
+      run: GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o bin/goformat-macos-arm64 main.go
+
+    - name: Generate Checksums
+      run: cd bin && sha256sum * > checksums.txt
+
+    # created as a draft so the notes can be reviewed before publishing
+    - name: Create Draft Release
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: gh release create "$GITHUB_REF_NAME" bin/* --draft --title "$GITHUB_REF_NAME" --generate-notes
