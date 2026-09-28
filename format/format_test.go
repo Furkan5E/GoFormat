@@ -9,12 +9,12 @@ import (
 )
 
 func TestIsSupported(t *testing.T) {
-	for _, ext := range []string{".jpg", ".jpeg", ".png", ".webp", ".tiff", ".tif", ".bmp", ".gif"} {
+	for _, ext := range []string{".jpg", ".jpeg", ".png", ".webp", ".tiff", ".tif", ".bmp", ".gif", ".ico", ".avif", ".heic", ".heif"} {
 		if !IsSupported(ext) {
 			t.Errorf("IsSupported(%q) = false, want true", ext)
 		}
 	}
-	for _, ext := range []string{".txt", ".md", "", ".heic"} {
+	for _, ext := range []string{".txt", ".md", "", ".jxl"} {
 		if IsSupported(ext) {
 			t.Errorf("IsSupported(%q) = true, want false", ext)
 		}
@@ -22,13 +22,26 @@ func TestIsSupported(t *testing.T) {
 }
 
 func TestGetEncoder(t *testing.T) {
-	for _, f := range []string{"jpeg", "jpg", "png", "webp", "tiff", "tif", "bmp", "gif"} {
+	for _, f := range []string{"jpeg", "jpg", "png", "webp", "tiff", "tif", "bmp", "gif", "ico", "avif"} {
 		if _, err := GetEncoder(f); err != nil {
 			t.Errorf("GetEncoder(%q) returned error: %v", f, err)
 		}
 	}
-	if _, err := GetEncoder("xyz"); err == nil {
-		t.Error("GetEncoder(\"xyz\") returned no error")
+	//heic can be read but has no encoder
+	for _, f := range []string{"xyz", "heic", "heif"} {
+		if _, err := GetEncoder(f); err == nil {
+			t.Errorf("GetEncoder(%q) returned no error", f)
+		}
+	}
+}
+
+func TestIcoEncodeRejectsLargeImages(t *testing.T) {
+	var buf bytes.Buffer
+	if err := (IcoEncoder{}).Encode(&buf, image.NewNRGBA(image.Rect(0, 0, 257, 16)), 0); err == nil {
+		t.Error("encoding a 257px wide ico returned no error")
+	}
+	if err := (IcoEncoder{}).Encode(&buf, image.NewNRGBA(image.Rect(0, 0, 256, 256)), 0); err != nil {
+		t.Errorf("encoding a 256x256 ico failed: %v", err)
 	}
 }
 
@@ -39,7 +52,7 @@ func TestEncodersRoundTrip(t *testing.T) {
 		src.Pix[i] = uint8(i * 7)
 	}
 
-	for _, f := range []string{"jpeg", "png", "webp", "tiff", "bmp", "gif"} {
+	for _, f := range []string{"jpeg", "png", "webp", "tiff", "bmp", "gif", "ico", "avif"} {
 		t.Run(f, func(t *testing.T) {
 			enc, _ := GetEncoder(f)
 			var buf bytes.Buffer

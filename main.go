@@ -32,8 +32,8 @@ func run(args []string) int {
 	flags := flag.NewFlagSet("goformat", flag.ContinueOnError)
 	inputPath := flags.String("i", "", "Path to the input image or directory (required)")
 	outDir := flags.String("o", "output", "Path to the output directory")
-	targetFormat := flags.String("f", "jpeg", "Target format: jpeg, png, webp, tiff, bmp, gif")
-	quality := flags.Int("q", 85, "Compression quality for jpeg/webp (1-100)")
+	targetFormat := flags.String("f", "jpeg", "Target format: jpeg, png, webp, tiff, bmp, gif, ico, avif")
+	quality := flags.Int("q", 85, "Compression quality for jpeg/webp/avif (1-100)")
 	recursive := flags.Bool("r", false, "Process subdirectories recursively")
 	width := flags.Int("width", 0, "Target width in pixels (0 to keep original)")
 	height := flags.Int("height", 0, "Target height in pixels (0 to keep original)")
@@ -69,7 +69,7 @@ func run(args []string) int {
 
 	//checked up front so a batch doesn't fail the same way once per file
 	if _, err := format.GetEncoder(strings.ToLower(*targetFormat)); err != nil {
-		fmt.Printf("Error: unsupported output format '%s'\n", *targetFormat)
+		fmt.Printf("Error: %v\n", err)
 		return exitUsage
 	}
 

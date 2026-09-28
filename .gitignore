@@ -36,3 +36,13 @@ go.work.sum
 *.tiff
 *.bmp
 *.gif
+*.tif
+*.ico
+*.avif
+*.heic
+*.heif
+
+# build and conversion output
+bin/
+output/
+/goformat

@@ -19,6 +19,10 @@ var supportedExtensions = map[string]bool{
 	".tif":  true,
 	".bmp":  true,
 	".gif":  true,
+	".ico":  true,
+	".avif": true,
+	".heic": true,
+	".heif": true,
 }
 
 func IsSupported(ext string) bool {
@@ -39,7 +43,13 @@ func GetEncoder(ext string) (Encoder, error) {
 		return BmpEncoder{}, nil
 	case "gif":
 		return GifEncoder{}, nil
+	case "ico":
+		return IcoEncoder{}, nil
+	case "avif":
+		return AvifEncoder{}, nil
+	case "heic", "heif":
+		return nil, fmt.Errorf("%s can be read but not written, choose another output format", ext)
 	default:
-		return nil, fmt.Errorf("error: unsupported output format '%s'", ext)
+		return nil, fmt.Errorf("unsupported output format '%s'", ext)
 	}
 }
