@@ -24,21 +24,28 @@ const (
 )
 
 func main() {
-	os.Exit(run())
+	os.Exit(run(os.Args[1:]))
 }
 
 //run is separate from main so deferred calls finish before os.Exit
-func run() int {
-	inputPath := flag.String("i", "", "Path to the input image or directory (required)")
-	outDir := flag.String("o", "output", "Path to the output directory")
-	targetFormat := flag.String("f", "jpeg", "Target format: jpeg, png, webp, tiff, bmp, gif")
-	quality := flag.Int("q", 85, "Compression quality for jpeg/webp (1-100)")
-	recursive := flag.Bool("r", false, "Process subdirectories recursively")
-	width := flag.Int("width", 0, "Target width in pixels (0 to keep original)")
-	height := flag.Int("height", 0, "Target height in pixels (0 to keep original)")
-	pixelart := flag.Bool("pixel", false, "Use nearest neighbour scaling to preserve pixel edges")
-	workers := flag.Int("workers", runtime.NumCPU(), "Number of images to convert at once in batch mode")
-	flag.Parse()
+func run(args []string) int {
+	flags := flag.NewFlagSet("goformat", flag.ContinueOnError)
+	inputPath := flags.String("i", "", "Path to the input image or directory (required)")
+	outDir := flags.String("o", "output", "Path to the output directory")
+	targetFormat := flags.String("f", "jpeg", "Target format: jpeg, png, webp, tiff, bmp, gif")
+	quality := flags.Int("q", 85, "Compression quality for jpeg/webp (1-100)")
+	recursive := flags.Bool("r", false, "Process subdirectories recursively")
+	width := flags.Int("width", 0, "Target width in pixels (0 to keep original)")
+	height := flags.Int("height", 0, "Target height in pixels (0 to keep original)")
+	pixelart := flags.Bool("pixel", false, "Use nearest neighbour scaling to preserve pixel edges")
+	workers := flags.Int("workers", runtime.NumCPU(), "Number of images to convert at once in batch mode")
+	if err := flags.Parse(args); err != nil {
+		//the flag package has already printed the error or usage
+		if err == flag.ErrHelp {
+			return exitOK
+		}
+		return exitUsage
+	}
 
 	if *inputPath == "" {
 		fmt.Println("Error: Input path is required. Use -i <path>")
