@@ -11,10 +11,12 @@ A high performance, concurrent command-line image processing utility written in 
 
 ## Features
 * **Format Conversion:** Convert images between six file formats.
-* **Batch Processing:** Process entire directories concurrently using multi core worker pools.
+* **Batch Processing:** Process entire directories concurrently using multi core worker pools, with a progress bar and a summary report.
 * **Image Resizing:** Scale images up or down to specific dimensions.
-* **Compression Control:** Adjust the output quality of applicable formats to optimise file sizes.
+* **Compression Control:** Adjust the output quality of JPEG and WebP to optimise file sizes.
 * **Pixel Art Support:** Upscale pixel art and low-resolution graphics using nearest-neighbour scaling to preserve edges without blurring.
+* **Animated GIFs:** Converting GIF to GIF keeps every frame, frame delays and the loop count, including when resizing.
+* **Transparency:** Transparent areas are preserved when converting to GIF.
 
 ## Supported Formats
 * `.jpeg` / `.jpg`
@@ -25,39 +27,68 @@ A high performance, concurrent command-line image processing utility written in 
 * `.gif`
 
 ## Installation
-Clone the repository
+
+### Download
+Download the binary for your platform from the [latest release](https://github.com/Furkan5E/GoFormat/releases/latest):
+
+| Platform | File |
+|----------|------|
+| Windows (64-bit) | `goformat-windows-amd64.exe` |
+| Linux (64-bit) | `goformat-linux-amd64` |
+| macOS (Apple Silicon) | `goformat-macos-arm64` |
+
+Each release includes a `checksums.txt` for verifying downloads. On Linux and macOS, make the file executable first:
+```bash
+chmod +x goformat-linux-amd64
+```
+
+### Build from Source
+Requires Go 1.27 or newer.
 ```bash
 git clone https://github.com/Furkan5E/GoFormat.git
 cd GoFormat
 ```
-### Usage
-Convert a single image:
+Compile the tool into an executable:
 ```bash
-go run main.go -i source.png -f jpg
-```
-Batch process a directory:
-```bash
-go run main.go -i pictures -f tiff -width 1920 -height 1080
-```
+# Windows
+go build -ldflags="-s -w" -o goformat.exe .
 
-## Compilation
-Compile the tool into a executable:
-```bash
-go build -ldflags="-s -w" -o goformat.exe main.go
+# Linux / macOS
+go build -ldflags="-s -w" -o goformat .
 ```
-### Usage
+Or run it without compiling by replacing `.\goformat.exe` with `go run .` in the examples below.
+
+## Usage
+The examples use Windows syntax. On Linux and macOS, use `./goformat` instead of `.\goformat.exe`.
+
 Convert a single image:
 ```bash
 .\goformat.exe -i source.jpg -o final_images -f png
 ```
-Batch process a directory:
+Batch process a directory, including subdirectories:
 ```bash
-.\goformat.exe -i pictures -f webp -q 80 -width 1920
+.\goformat.exe -i pictures -r -f webp -q 80 -width 1920
 ```
 Upscale 2D assets:
 ```bash
 .\goformat.exe -i sprites -o assets -f png -width 1024 -pixel
 ```
+
+### Resizing
+Set only `-width` or only `-height` to keep the original aspect ratio. Setting both resizes to exactly that size, which stretches the image if the proportions differ:
+```bash
+.\goformat.exe -i pictures -f tiff -width 1920 -height 1080
+```
+
+### Batch Processing
+* The output directory mirrors the input folder structure, and folders without images are not copied.
+* If the output directory is inside the input directory, it is skipped so earlier results are not converted again.
+* A progress bar with an estimated time remaining is shown in the terminal. When output is redirected to a file or another program, one line per file is printed instead.
+* The final report lists skipped unsupported files, failed files and any warnings.
+
+### Animated GIFs
+Converting an animated GIF to GIF keeps all frames. Converting it to any other format keeps only the first frame, as those formats do not support animation.
+
 ## Command Line Flags
 
 | Flag | Description | Default |
@@ -65,12 +96,13 @@ Upscale 2D assets:
 | `-i` | Path to the input image or directory |`Required`|
 | `-o` | Path to the output directory | `output` |
 | `-f` | Target format (`jpeg`, `png`, `webp`, `tiff`, `bmp`, `gif`) | `jpeg` |
-| `-q` | Compression quality for applicable formats (1 to 100) | `85` |
+| `-q` | Compression quality for JPEG and WebP (1 to 100) | `85` |
 | `-width` | Target width in pixels (0 to keep original) | `0` |
 | `-height` | Target height in pixels (0 to keep original) | `0` |
 | `-pixel` | Use nearest neighbour scaling to preserve pixel edges | `false` |
 | `-r` | Process subdirectories recursively | `false` |
 | `-workers` | Number of images to convert at once in batch mode | CPU cores |
+| `-h` | Show help | |
 
 ## Exit Codes
 
@@ -80,3 +112,8 @@ Upscale 2D assets:
 | `1` | One or more files failed, or the input/output path could not be used |
 | `2` | Invalid usage, such as a missing `-i` |
 | `130` | Interrupted with Ctrl+C before finishing |
+
+## Running Tests
+```bash
+go test ./...
+```
