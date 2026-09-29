@@ -21,6 +21,12 @@ type Result struct {
 }
 
 func ProcessImage(ctx context.Context, inputPath string, outDir string, outFormat string, quality int, targetWidth int, targetHeight int, pixelart bool) (Result, error) {
+	outPath := generateOutputPath(inputPath, outDir, strings.ToLower(outFormat))
+	return ProcessImageTo(ctx, inputPath, outPath, outFormat, quality, targetWidth, targetHeight, pixelart)
+}
+
+//ProcessImageTo converts to an exact output path, for callers that choose the file name themselves
+func ProcessImageTo(ctx context.Context, inputPath string, outPath string, outFormat string, quality int, targetWidth int, targetHeight int, pixelart bool) (Result, error) {
 	if ctx.Err() != nil {
 		return Result{}, ctx.Err()
 	}
@@ -30,7 +36,6 @@ func ProcessImage(ctx context.Context, inputPath string, outDir string, outForma
 
 	//extract historical metadata
 	meta := extractMetadata(inputPath)
-	outPath := generateOutputPath(inputPath, outDir, outFormat)
 
 	if ext == ".gif" && outFormat == "gif" {
 		//keep every frame instead of collapsing the animation to a single image

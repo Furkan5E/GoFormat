@@ -15,6 +15,8 @@ import (
 type Job struct {
 	InputPath string
 	OutputDir string
+	//output file name without its extension
+	OutputName string
 }
 
 type Options struct {
@@ -164,11 +166,50 @@ func collectJobs(ctx context.Context, dirPath, outDir string, recursive bool) ([
 
 		//mirror the input folder structure inside the output folder
 		relPath, _ := filepath.Rel(dirPath, filepath.Dir(path))
-		jobList = append(jobList, Job{InputPath: path, OutputDir: filepath.Join(outDir, relPath)})
+		jobList = append(jobList, Job{
+			InputPath:  path,
+			OutputDir:  filepath.Join(outDir, relPath),
+			OutputName: strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)),
+		})
 		return nil
 	})
 
+	resolveCollisions(jobList)
 	return jobList, skipped, err
+}
+
+//inputs sharing a base name in one folder (a.png and a.jpg) would otherwise overwrite each other's output
+//each of them gets its source extension added to the name instead (a_png, a_jpg)
+func resolveCollisions(jobs []Job) {
+	//compared in lower case as Windows and macOS file names are case-insensitive
+	key := func(j Job) string {
+		return strings.ToLower(filepath.Join(j.OutputDir, j.OutputName))
+	}
+
+	count := make(map[string]int)
+	for _, j := range jobs {
+		count[key(j)]++
+	}
+	taken := make(map[string]bool)
+	for _, j := range jobs {
+		if count[key(j)] == 1 {
+			taken[key(j)] = true
+		}
+	}
+
+	for i := range jobs {
+		j := &jobs[i]
+		if count[key(*j)] == 1 {
+			continue
+		}
+		base := j.OutputName + "_" + strings.TrimPrefix(filepath.Ext(j.InputPath), ".")
+		j.OutputName = base
+		//the new name can itself be in use (a real a_png.gif, or a.png next to a.PNG), so number it
+		for n := 2; taken[key(*j)]; n++ {
+			j.OutputName = fmt.Sprintf("%s_%d", base, n)
+		}
+		taken[key(*j)] = true
+	}
 }
 
 func convert(ctx context.Context, job Job, opts Options) (converter.Result, error) {
@@ -176,5 +217,6 @@ func convert(ctx context.Context, job Job, opts Options) (converter.Result, erro
 	if err := os.MkdirAll(job.OutputDir, os.ModePerm); err != nil {
 		return converter.Result{}, fmt.Errorf("failed to create %s: %v", job.OutputDir, err)
 	}
-	return converter.ProcessImage(ctx, job.InputPath, job.OutputDir, opts.Format, opts.Quality, opts.Width, opts.Height, opts.Pixelart)
+	outPath := filepath.Join(job.OutputDir, job.OutputName+"."+strings.ToLower(opts.Format))
+	return converter.ProcessImageTo(ctx, job.InputPath, outPath, opts.Format, opts.Quality, opts.Width, opts.Height, opts.Pixelart)
 }

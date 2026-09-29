@@ -73,6 +73,55 @@ func TestCollectJobs(t *testing.T) {
 	}
 }
 
+//a.png and a.jpg used to both write a.bmp, with one silently replacing the other
+func TestCollectJobsNameCollisions(t *testing.T) {
+	in, out := t.TempDir(), t.TempDir()
+	makeTree(t, in, "a.png", "a.jpg", "a_jpg.gif", "b.png", "sub/a.png")
+
+	jobs, _, err := collectJobs(context.Background(), in, out, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := make(map[string]string)
+	for _, j := range jobs {
+		rel, _ := filepath.Rel(in, j.InputPath)
+		got[filepath.ToSlash(rel)] = j.OutputName
+	}
+	want := map[string]string{
+		"a.png":     "a_png",
+		"a.jpg":     "a_jpg_2", //a_jpg is already taken by a_jpg.gif
+		"a_jpg.gif": "a_jpg",
+		"b.png":     "b",
+		"sub/a.png": "a", //same name in another folder is not a collision
+	}
+	for path, name := range want {
+		if got[path] != name {
+			t.Errorf("%s: OutputName = %q, want %q", path, got[path], name)
+		}
+	}
+}
+
+func TestProcessDirectoryNameCollisions(t *testing.T) {
+	in, out := t.TempDir(), t.TempDir()
+	makeTree(t, in, "a.png")
+	//the decoder goes by content, so a png under another extension still converts
+	data, err := os.ReadFile(filepath.Join(in, "a.png"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.WriteFile(filepath.Join(in, "a.bmp"), data, 0o644)
+
+	if err := ProcessDirectory(context.Background(), in, out, Options{Format: "jpeg", Quality: 85, Workers: 2}); err != nil {
+		t.Fatalf("ProcessDirectory: %v", err)
+	}
+	for _, want := range []string{"a_png.jpeg", "a_bmp.jpeg"} {
+		if _, err := os.Stat(filepath.Join(out, want)); err != nil {
+			t.Errorf("missing output %s", want)
+		}
+	}
+}
+
 func TestProcessDirectory(t *testing.T) {
 	in, out := t.TempDir(), t.TempDir()
 	makeTree(t, in, "a.png", "sub/b.png", "noimages/readme.txt")

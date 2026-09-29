@@ -89,6 +89,7 @@ Set only `-width` or only `-height` to keep the original aspect ratio. Setting b
 ### Batch Processing
 * The output directory mirrors the input folder structure, and folders without images are not copied.
 * If the output directory is inside the input directory, it is skipped so earlier results are not converted again.
+* Files in the same folder that share a name (`a.png` and `a.jpg`) would produce the same output file, so each keeps its original extension in the output name (`a_png.webp` and `a_jpg.webp`).
 * A progress bar with an estimated time remaining is shown in the terminal. When output is redirected to a file or another program, one line per file is printed instead.
 * The final report lists skipped unsupported files, failed files and any warnings.
 
