@@ -3,6 +3,7 @@ package converter
 import (
 	"fmt"
 	"image"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -131,11 +132,35 @@ func generateOutputPath(inputPath, outDir, targetFormat string) string {
 }
 
 func saveImage(img image.Image, path string, enc format.Encoder, quality int) error {
-	outFile, err := os.Create(path)
+	return writeFile(path, func(w io.Writer) error {
+		return enc.Encode(w, img, quality)
+	})
+}
+
+//writeFile encodes into a temporary file next to outPath and renames it into place once it is complete
+//a failed conversion then never leaves a partial file behind or damages a file that was already there
+func writeFile(outPath string, encode func(w io.Writer) error) (err error) {
+	tmp, err := os.CreateTemp(filepath.Dir(outPath), filepath.Base(outPath)+".*.tmp")
 	if err != nil {
 		return err
 	}
-	defer outFile.Close()
+	defer func() {
+		if err != nil {
+			tmp.Close()
+			os.Remove(tmp.Name())
+		}
+	}()
 
-	return enc.Encode(outFile, img, quality)
+	if err = encode(tmp); err != nil {
+		return err
+	}
+	//temporary files are created private to the user, unlike a normal output file
+	if err = tmp.Chmod(0o644); err != nil {
+		return err
+	}
+	//a close error means the data may not have reached the disk
+	if err = tmp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmp.Name(), outPath)
 }

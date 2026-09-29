@@ -100,6 +100,42 @@ func TestProcessImage(t *testing.T) {
 	}
 }
 
+//a failed encode used to leave a 0-byte file, or truncate one that was already there
+func TestProcessImageFailureLeavesNoPartialFile(t *testing.T) {
+	dir := t.TempDir()
+	in := filepath.Join(dir, "a.png")
+	writePNG(t, in, image.NewRGBA(image.Rect(0, 0, 600, 600)))
+	out := filepath.Join(dir, "a.ico")
+
+	//ico cannot hold a 600x600 image, so the encoder fails after the output file is opened
+	if _, err := ProcessImage(context.Background(), in, dir, "ico", 85, 0, 0, false); err == nil {
+		t.Fatal("expected an error")
+	}
+	if _, err := os.Stat(out); err == nil {
+		t.Error("failed conversion left an output file behind")
+	}
+
+	os.WriteFile(out, []byte("existing"), 0o644)
+	if _, err := ProcessImage(context.Background(), in, dir, "ico", 85, 0, 0, false); err == nil {
+		t.Fatal("expected an error")
+	}
+	if data, _ := os.ReadFile(out); string(data) != "existing" {
+		t.Errorf("failed conversion changed the existing output to %q", data)
+	}
+
+	//a successful conversion replaces the existing file
+	if _, err := ProcessImage(context.Background(), in, dir, "ico", 85, 64, 0, false); err != nil {
+		t.Fatalf("ProcessImage: %v", err)
+	}
+	if data, _ := os.ReadFile(out); string(data) == "existing" {
+		t.Error("successful conversion did not replace the existing output")
+	}
+
+	if left, _ := filepath.Glob(filepath.Join(dir, "*.tmp")); len(left) > 0 {
+		t.Errorf("temporary files left behind: %v", left)
+	}
+}
+
 func TestProcessImageErrors(t *testing.T) {
 	dir := t.TempDir()
 	in := filepath.Join(dir, "a.png")

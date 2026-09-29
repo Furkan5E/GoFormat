@@ -5,6 +5,7 @@ import (
 	"image/color"
 	stddraw "image/draw"
 	"image/gif"
+	"io"
 	"os"
 
 	"goformat/format"
@@ -96,11 +97,7 @@ func buildPalette(g *gif.GIF) color.Palette {
 }
 
 func writeGIF(outPath string, g *gif.GIF) error {
-	outFile, err := os.Create(outPath)
-	if err != nil {
-		return err
-	}
-	defer outFile.Close()
-
-	return format.GifEncoder{}.EncodeAnimated(outFile, g)
+	return writeFile(outPath, func(w io.Writer) error {
+		return format.GifEncoder{}.EncodeAnimated(w, g)
+	})
 }
