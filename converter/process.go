@@ -54,6 +54,11 @@ func ProcessImageTo(ctx context.Context, inputPath string, outPath string, outFo
 			return Result{}, fmt.Errorf("failed to load %s: %v", inputPath, err)
 		}
 
+		//the heic and avif decoders already turn the image themselves
+		if ext != ".heic" && ext != ".heif" && ext != ".avif" {
+			img = applyOrientation(img, meta.Orientation)
+		}
+
 		if targetWidth > 0 || targetHeight > 0 {
 			img, err = resizeImage(img, targetWidth, targetHeight, pixelart)
 			if err != nil {

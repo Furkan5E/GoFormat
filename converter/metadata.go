@@ -10,6 +10,8 @@ import (
 type ImageMetadata struct {
 	Timestamp   time.Time
 	HasMetadata bool
+	//EXIF orientation tag (1 to 8), or 0 when the image has none
+	Orientation int
 }
 
 func extractMetadata(path string) ImageMetadata {
@@ -25,14 +27,19 @@ func extractMetadata(path string) ImageMetadata {
 		return ImageMetadata{HasMetadata: false}
 	}
 
-	//extract original DateTime capture
-	tm, err := x.DateTime()
-	if err != nil {
-		return ImageMetadata{HasMetadata: false}
+	var meta ImageMetadata
+
+	if tag, err := x.Get(exif.Orientation); err == nil {
+		if v, err := tag.Int(0); err == nil {
+			meta.Orientation = v
+		}
 	}
 
-	return ImageMetadata{
-		Timestamp:   tm,
-		HasMetadata: true,
+	//extract original DateTime capture
+	if tm, err := x.DateTime(); err == nil {
+		meta.Timestamp = tm
+		meta.HasMetadata = true
 	}
+
+	return meta
 }

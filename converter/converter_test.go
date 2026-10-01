@@ -1,10 +1,12 @@
 package converter
 
 import (
+	"bytes"
 	"context"
 	"image"
 	"image/color"
 	"image/gif"
+	"image/jpeg"
 	"image/png"
 	"os"
 	"path/filepath"
@@ -133,6 +135,107 @@ func TestProcessImageFailureLeavesNoPartialFile(t *testing.T) {
 
 	if left, _ := filepath.Glob(filepath.Join(dir, "*.tmp")); len(left) > 0 {
 		t.Errorf("temporary files left behind: %v", left)
+	}
+}
+
+func TestApplyOrientation(t *testing.T) {
+	//a 3x2 image with a different value in every pixel:
+	//  1 2 3
+	//  4 5 6
+	src := image.NewRGBA(image.Rect(0, 0, 3, 2))
+	for i := 0; i < 6; i++ {
+		src.SetRGBA(i%3, i/3, color.RGBA{uint8(i + 1), 0, 0, 255})
+	}
+
+	tests := []struct {
+		orientation int
+		want        [][]uint8
+	}{
+		{0, [][]uint8{{1, 2, 3}, {4, 5, 6}}},
+		{1, [][]uint8{{1, 2, 3}, {4, 5, 6}}},
+		{2, [][]uint8{{3, 2, 1}, {6, 5, 4}}},
+		{3, [][]uint8{{6, 5, 4}, {3, 2, 1}}},
+		{4, [][]uint8{{4, 5, 6}, {1, 2, 3}}},
+		{5, [][]uint8{{1, 4}, {2, 5}, {3, 6}}},
+		{6, [][]uint8{{4, 1}, {5, 2}, {6, 3}}},
+		{7, [][]uint8{{6, 3}, {5, 2}, {4, 1}}},
+		{8, [][]uint8{{3, 6}, {2, 5}, {1, 4}}},
+		{9, [][]uint8{{1, 2, 3}, {4, 5, 6}}},
+	}
+	for _, tt := range tests {
+		got := applyOrientation(src, tt.orientation)
+		if b := got.Bounds(); b.Dx() != len(tt.want[0]) || b.Dy() != len(tt.want) {
+			t.Errorf("orientation %d: got %dx%d, want %dx%d", tt.orientation, b.Dx(), b.Dy(), len(tt.want[0]), len(tt.want))
+			continue
+		}
+		for y, row := range tt.want {
+			for x, want := range row {
+				if r, _, _, _ := got.At(x, y).RGBA(); uint8(r>>8) != want {
+					t.Errorf("orientation %d: pixel (%d,%d) = %d, want %d", tt.orientation, x, y, r>>8, want)
+				}
+			}
+		}
+	}
+}
+
+//write a jpeg carrying only an EXIF orientation tag, the way a phone stores a sideways photo
+func writeOrientedJPEG(t *testing.T, path string, img image.Image, orientation byte) {
+	t.Helper()
+	var buf bytes.Buffer
+	if err := jpeg.Encode(&buf, img, &jpeg.Options{Quality: 100}); err != nil {
+		t.Fatal(err)
+	}
+	exifSegment := []byte{
+		0xFF, 0xE1, 0x00, 0x22, //APP1 marker and length
+		'E', 'x', 'i', 'f', 0, 0,
+		'M', 'M', 0, 42, 0, 0, 0, 8, //big-endian TIFF header
+		0, 1, //one tag
+		0x01, 0x12, 0, 3, 0, 0, 0, 1, 0, orientation, 0, 0, //orientation, one short
+		0, 0, 0, 0, //no further tags
+	}
+	//the segment goes straight after the two-byte start of image marker
+	data := append([]byte{}, buf.Bytes()[:2]...)
+	data = append(data, exifSegment...)
+	data = append(data, buf.Bytes()[2:]...)
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+//a photo stored on its side used to stay on its side once the tag was dropped
+func TestProcessImageAppliesOrientation(t *testing.T) {
+	dir := t.TempDir()
+	in := filepath.Join(dir, "photo.jpg")
+
+	//stored 32x16 with the left half red, to be shown turned a quarter clockwise: 16x32 with the top half red
+	src := image.NewRGBA(image.Rect(0, 0, 32, 16))
+	for y := 0; y < 16; y++ {
+		for x := 0; x < 32; x++ {
+			if x < 16 {
+				src.SetRGBA(x, y, color.RGBA{255, 0, 0, 255})
+			} else {
+				src.SetRGBA(x, y, color.RGBA{0, 0, 255, 255})
+			}
+		}
+	}
+	writeOrientedJPEG(t, in, src, 6)
+
+	res, err := ProcessImage(context.Background(), in, dir, "png", 85, 0, 0, false)
+	if err != nil {
+		t.Fatalf("ProcessImage: %v", err)
+	}
+	out, err := loadImage(res.OutPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b := out.Bounds(); b.Dx() != 16 || b.Dy() != 32 {
+		t.Fatalf("output is %dx%d, want 16x32", b.Dx(), b.Dy())
+	}
+	if r, _, b, _ := out.At(8, 4).RGBA(); r < 0xC000 || b > 0x4000 {
+		t.Errorf("top of the output is not red: %v", out.At(8, 4))
+	}
+	if r, _, b, _ := out.At(8, 28).RGBA(); b < 0xC000 || r > 0x4000 {
+		t.Errorf("bottom of the output is not blue: %v", out.At(8, 28))
 	}
 }
 
