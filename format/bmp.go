@@ -10,5 +10,5 @@ import (
 type BmpEncoder struct{}
 
 func (BmpEncoder) Encode(w io.Writer, img image.Image, quality int) error {
-	return bmp.Encode(w, img)
+	return bmp.Encode(w, onWhite(img))
 }

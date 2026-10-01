@@ -9,5 +9,5 @@ import (
 type JpegEncoder struct{}
 
 func (JpegEncoder) Encode(w io.Writer, img image.Image, quality int) error {
-	return jpeg.Encode(w, img, &jpeg.Options{Quality: quality})
+	return jpeg.Encode(w, onWhite(img), &jpeg.Options{Quality: quality})
 }

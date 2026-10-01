@@ -70,6 +70,44 @@ func TestEncodersRoundTrip(t *testing.T) {
 	}
 }
 
+//jpeg and bmp cannot store transparency, which used to turn transparent areas black
+func TestOpaqueFormatsUseWhiteBackground(t *testing.T) {
+	src := image.NewNRGBA(image.Rect(0, 0, 16, 16))
+
+	for _, f := range []string{"jpeg", "bmp"} {
+		t.Run(f, func(t *testing.T) {
+			enc, _ := GetEncoder(f)
+			var buf bytes.Buffer
+			if err := enc.Encode(&buf, src, 95); err != nil {
+				t.Fatalf("Encode: %v", err)
+			}
+			out, _, err := image.Decode(&buf)
+			if err != nil {
+				t.Fatalf("output does not decode: %v", err)
+			}
+			if r, g, b, _ := out.At(8, 8).RGBA(); r < 0xF000 || g < 0xF000 || b < 0xF000 {
+				t.Errorf("transparent pixel became %v, want white", out.At(8, 8))
+			}
+		})
+	}
+}
+
+func TestOnWhite(t *testing.T) {
+	//opaque images are passed through untouched
+	opaque := image.NewGray(image.Rect(0, 0, 4, 4))
+	if got := onWhite(opaque); got != image.Image(opaque) {
+		t.Error("opaque image was copied instead of returned as is")
+	}
+
+	//half transparent red over white is pink
+	src := image.NewNRGBA(image.Rect(0, 0, 1, 1))
+	src.SetNRGBA(0, 0, color.NRGBA{255, 0, 0, 128})
+	got := color.NRGBAModel.Convert(onWhite(src).At(0, 0)).(color.NRGBA)
+	if got.R != 255 || got.G < 120 || got.G > 135 || got.B != got.G || got.A != 255 {
+		t.Errorf("half transparent red on white = %v, want about {255 127 127 255}", got)
+	}
+}
+
 func TestPaletteBuilder(t *testing.T) {
 	b := NewPaletteBuilder()
 	red := color.NRGBA{255, 0, 0, 255}

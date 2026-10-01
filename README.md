@@ -16,7 +16,7 @@ A high performance, concurrent command-line image processing utility written in 
 * **Compression Control:** Adjust the output quality of JPEG, WebP and AVIF to optimise file sizes.
 * **Pixel Art Support:** Upscale pixel art and low-resolution graphics using nearest-neighbour scaling to preserve edges without blurring.
 * **Animated GIFs:** Converting GIF to GIF keeps every frame, frame delays and the loop count, including when resizing.
-* **Transparency:** Transparent areas are preserved when converting to GIF.
+* **Transparency:** Transparent areas are preserved when converting to GIF. JPEG and BMP cannot store transparency, so transparent areas become white.
 * **Photo Orientation:** Photos stored sideways with an EXIF orientation tag, as most phone cameras do, come out the right way up.
 
 ## Supported Formats
