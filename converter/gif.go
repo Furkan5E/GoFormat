@@ -21,7 +21,7 @@ func loadGIF(path string) (*gif.GIF, error) {
 	return gif.DecodeAll(file)
 }
 
-//preserve every frame of GIF
+// preserve every frame of GIF
 func processGIFToGIF(inputPath, outPath string, targetWidth, targetHeight int, pixelart bool) error {
 	g, err := loadGIF(inputPath)
 	if err != nil {
@@ -83,7 +83,7 @@ func processGIFToGIF(inputPath, outPath string, targetWidth, targetHeight int, p
 	return writeGIF(outPath, out)
 }
 
-//gather every opaque colour used by the source frames so resized output stays true to the original
+// gather every opaque colour used by the source frames so resized output stays true to the original
 func buildPalette(g *gif.GIF) color.Palette {
 	b := format.NewPaletteBuilder()
 	for _, frame := range g.Image {

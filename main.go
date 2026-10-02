@@ -16,7 +16,7 @@ import (
 	"goformat/format"
 )
 
-//exit codes
+// exit codes
 const (
 	exitOK          = 0
 	exitFailure     = 1
@@ -28,7 +28,7 @@ func main() {
 	os.Exit(run(os.Args[1:]))
 }
 
-//run is separate from main so deferred calls finish before os.Exit
+// run is separate from main so deferred calls finish before os.Exit
 func run(args []string) int {
 	flags := flag.NewFlagSet("goformat", flag.ContinueOnError)
 	inputPath := flags.String("i", "", "Path to the input image or directory (required)")

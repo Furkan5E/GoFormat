@@ -11,7 +11,7 @@ import (
 	"testing"
 )
 
-//build a folder tree, writing a small png for each .png path and a text file for anything else
+// build a folder tree, writing a small png for each .png path and a text file for anything else
 func makeTree(t *testing.T, root string, files ...string) {
 	t.Helper()
 	for _, name := range files {
@@ -74,7 +74,7 @@ func TestCollectJobs(t *testing.T) {
 	}
 }
 
-//a.png and a.jpg used to both write a.bmp, with one silently replacing the other
+// a.png and a.jpg used to both write a.bmp, with one silently replacing the other
 func TestCollectJobsNameCollisions(t *testing.T) {
 	in, out := t.TempDir(), t.TempDir()
 	makeTree(t, in, "a.png", "a.jpg", "a_jpg.gif", "b.png", "sub/a.png")

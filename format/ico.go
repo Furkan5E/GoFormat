@@ -10,7 +10,7 @@ import (
 
 type IcoEncoder struct{}
 
-//the ico format cannot store images larger than this
+// the ico format cannot store images larger than this
 const maxIcoSize = 256
 
 func (IcoEncoder) Encode(w io.Writer, img image.Image, quality int) error {

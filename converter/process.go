@@ -1,21 +1,21 @@
 package converter
 
 import (
+	"context"
 	"fmt"
 	"image"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
-	"context"
 
 	"goformat/format"
 
 	"golang.org/x/image/draw"
 )
 
-//Result describes a successful conversion
-//warnings are returned rather than printed so batch mode can report them without breaking the progress bar
+// Result describes a successful conversion
+// warnings are returned rather than printed so batch mode can report them without breaking the progress bar
 type Result struct {
 	OutPath  string
 	Warnings []string
@@ -26,12 +26,12 @@ func ProcessImage(ctx context.Context, inputPath string, outDir string, outForma
 	return ProcessImageTo(ctx, inputPath, outPath, outFormat, quality, targetWidth, targetHeight, pixelart)
 }
 
-//ProcessImageTo converts to an exact output path, for callers that choose the file name themselves
+// ProcessImageTo converts to an exact output path, for callers that choose the file name themselves
 func ProcessImageTo(ctx context.Context, inputPath string, outPath string, outFormat string, quality int, targetWidth int, targetHeight int, pixelart bool) (Result, error) {
 	if ctx.Err() != nil {
 		return Result{}, ctx.Err()
 	}
-	
+
 	outFormat = strings.ToLower(outFormat)
 	ext := strings.ToLower(filepath.Ext(inputPath))
 
@@ -108,13 +108,13 @@ func resizeImage(src image.Image, targetW, targetH int, pixelart bool) (image.Im
 	}
 
 	dst := image.NewRGBA(image.Rect(0, 0, targetW, targetH))
-	
+
 	if pixelart {
 		draw.NearestNeighbor.Scale(dst, dst.Bounds(), src, bounds, draw.Over, nil)
 	} else {
 		draw.BiLinear.Scale(dst, dst.Bounds(), src, bounds, draw.Over, nil)
 	}
-	
+
 	return dst, nil
 }
 
@@ -142,8 +142,8 @@ func saveImage(img image.Image, path string, enc format.Encoder, quality int) er
 	})
 }
 
-//writeFile encodes into a temporary file next to outPath and renames it into place once it is complete
-//a failed conversion then never leaves a partial file behind or damages a file that was already there
+// writeFile encodes into a temporary file next to outPath and renames it into place once it is complete
+// a failed conversion then never leaves a partial file behind or damages a file that was already there
 func writeFile(outPath string, encode func(w io.Writer) error) (err error) {
 	tmp, err := os.CreateTemp(filepath.Dir(outPath), filepath.Base(outPath)+".*.tmp")
 	if err != nil {

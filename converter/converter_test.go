@@ -56,7 +56,7 @@ func TestResizeImage(t *testing.T) {
 	}
 }
 
-//an empty bmp used to panic with an integer divide by zero
+// an empty bmp used to panic with an integer divide by zero
 func TestResizeImageEmpty(t *testing.T) {
 	if _, err := resizeImage(image.NewRGBA(image.Rect(0, 0, 0, 0)), 100, 0, false); err == nil {
 		t.Error("resizing a 0x0 image returned no error")
@@ -103,7 +103,7 @@ func TestProcessImage(t *testing.T) {
 	}
 }
 
-//a failed encode used to leave a 0-byte file, or truncate one that was already there
+// a failed encode used to leave a 0-byte file, or truncate one that was already there
 func TestProcessImageFailureLeavesNoPartialFile(t *testing.T) {
 	dir := t.TempDir()
 	in := filepath.Join(dir, "a.png")
@@ -179,7 +179,7 @@ func TestApplyOrientation(t *testing.T) {
 	}
 }
 
-//write a jpeg carrying only an EXIF orientation tag, the way a phone stores a sideways photo
+// write a jpeg carrying only an EXIF orientation tag, the way a phone stores a sideways photo
 func writeOrientedJPEG(t *testing.T, path string, img image.Image, orientation byte) {
 	t.Helper()
 	var buf bytes.Buffer
@@ -203,7 +203,7 @@ func writeOrientedJPEG(t *testing.T, path string, img image.Image, orientation b
 	}
 }
 
-//a photo stored on its side used to stay on its side once the tag was dropped
+// a photo stored on its side used to stay on its side once the tag was dropped
 func TestProcessImageAppliesOrientation(t *testing.T) {
 	dir := t.TempDir()
 	in := filepath.Join(dir, "photo.jpg")
@@ -271,7 +271,7 @@ func TestProcessImageErrors(t *testing.T) {
 	}
 }
 
-//errors keep their cause so callers can tell a missing file from a corrupt one
+// errors keep their cause so callers can tell a missing file from a corrupt one
 func TestProcessImageErrorsKeepCause(t *testing.T) {
 	dir := t.TempDir()
 	_, err := ProcessImage(context.Background(), filepath.Join(dir, "nope.png"), dir, "png", 85, 0, 0, false)
@@ -280,7 +280,7 @@ func TestProcessImageErrorsKeepCause(t *testing.T) {
 	}
 }
 
-//two frames of an 8x8 sprite: a square in an off-Plan9 colour that moves diagonally
+// two frames of an 8x8 sprite: a square in an off-Plan9 colour that moves diagonally
 var spriteColour = color.NRGBA{200, 100, 50, 255}
 
 func writeMovingSprite(t *testing.T, path string) {

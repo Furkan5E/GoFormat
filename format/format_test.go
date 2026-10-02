@@ -45,7 +45,7 @@ func TestIcoEncodeRejectsLargeImages(t *testing.T) {
 	}
 }
 
-//every encoder should produce something that decodes back to the same size
+// every encoder should produce something that decodes back to the same size
 func TestEncodersRoundTrip(t *testing.T) {
 	src := image.NewNRGBA(image.Rect(0, 0, 12, 7))
 	for i := range src.Pix {
@@ -70,7 +70,7 @@ func TestEncodersRoundTrip(t *testing.T) {
 	}
 }
 
-//jpeg and bmp cannot store transparency, which used to turn transparent areas black
+// jpeg and bmp cannot store transparency, which used to turn transparent areas black
 func TestOpaqueFormatsUseWhiteBackground(t *testing.T) {
 	src := image.NewNRGBA(image.Rect(0, 0, 16, 16))
 
@@ -194,7 +194,7 @@ func TestQuantiseKeepsTransparency(t *testing.T) {
 	}
 }
 
-//converting to gif used to go through Plan9, which has no transparent colour
+// converting to gif used to go through Plan9, which has no transparent colour
 func TestGifEncodeKeepsTransparencyAndColour(t *testing.T) {
 	odd := color.NRGBA{200, 100, 50, 255}
 	src := image.NewNRGBA(image.Rect(0, 0, 8, 8))

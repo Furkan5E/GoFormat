@@ -26,8 +26,8 @@ var supportedExtensions = map[string]bool{
 	".heif": true,
 }
 
-//onWhite places img on a white background, for formats that cannot store transparency
-//without it transparent areas come out black
+// onWhite places img on a white background, for formats that cannot store transparency
+// without it transparent areas come out black
 func onWhite(img image.Image) image.Image {
 	if o, ok := img.(interface{ Opaque() bool }); ok && o.Opaque() {
 		return img

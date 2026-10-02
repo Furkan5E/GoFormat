@@ -128,7 +128,7 @@ func ProcessDirectory(ctx context.Context, dirPath string, outDir string, opts O
 	return nil
 }
 
-//walk dirPath and return a job per supported image, plus how many other files were skipped
+// walk dirPath and return a job per supported image, plus how many other files were skipped
 func collectJobs(ctx context.Context, dirPath, outDir string, recursive bool) ([]Job, int, error) {
 	var jobList []Job
 	skipped := 0
@@ -180,8 +180,8 @@ func collectJobs(ctx context.Context, dirPath, outDir string, recursive bool) ([
 	return jobList, skipped, err
 }
 
-//inputs sharing a base name in one folder (a.png and a.jpg) would otherwise overwrite each other's output
-//each of them gets its source extension added to the name instead (a_png, a_jpg)
+// inputs sharing a base name in one folder (a.png and a.jpg) would otherwise overwrite each other's output
+// each of them gets its source extension added to the name instead (a_png, a_jpg)
 func resolveCollisions(jobs []Job) {
 	//compared in lower case as Windows and macOS file names are case-insensitive
 	key := func(j Job) string {

@@ -6,8 +6,8 @@ import (
 	"golang.org/x/image/draw"
 )
 
-//applyOrientation turns and mirrors img the way its EXIF orientation tag says it should be displayed
-//cameras often store a photo sideways and rely on the tag, which is lost on conversion
+// applyOrientation turns and mirrors img the way its EXIF orientation tag says it should be displayed
+// cameras often store a photo sideways and rely on the tag, which is lost on conversion
 func applyOrientation(img image.Image, orientation int) image.Image {
 	if orientation < 2 || orientation > 8 {
 		return img

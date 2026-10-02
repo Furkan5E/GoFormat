@@ -52,7 +52,7 @@ func TestRunExitCodes(t *testing.T) {
 	}
 }
 
-//errors used to go to stdout, where they mixed into piped output and were missed by 2> redirects
+// errors used to go to stdout, where they mixed into piped output and were missed by 2> redirects
 func TestRunWritesErrorsToStderr(t *testing.T) {
 	dir := t.TempDir()
 	stdout, err := os.Create(filepath.Join(dir, "stdout.txt"))
