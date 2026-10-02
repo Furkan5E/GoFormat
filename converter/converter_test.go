@@ -3,6 +3,7 @@ package converter
 import (
 	"bytes"
 	"context"
+	"errors"
 	"image"
 	"image/color"
 	"image/gif"
@@ -267,6 +268,15 @@ func TestProcessImageErrors(t *testing.T) {
 				t.Error("expected an error")
 			}
 		})
+	}
+}
+
+//errors keep their cause so callers can tell a missing file from a corrupt one
+func TestProcessImageErrorsKeepCause(t *testing.T) {
+	dir := t.TempDir()
+	_, err := ProcessImage(context.Background(), filepath.Join(dir, "nope.png"), dir, "png", 85, 0, 0, false)
+	if !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("err = %v, want it to wrap os.ErrNotExist", err)
 	}
 }
 

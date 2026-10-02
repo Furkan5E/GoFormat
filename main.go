@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -41,48 +42,48 @@ func run(args []string) int {
 	workers := flags.Int("workers", runtime.NumCPU(), "Number of images to convert at once in batch mode")
 	if err := flags.Parse(args); err != nil {
 		//the flag package has already printed the error or usage
-		if err == flag.ErrHelp {
+		if errors.Is(err, flag.ErrHelp) {
 			return exitOK
 		}
 		return exitUsage
 	}
 
 	if *inputPath == "" {
-		fmt.Println("Error: Input path is required. Use -i <path>")
+		fmt.Fprintln(os.Stderr, "Error: Input path is required. Use -i <path>")
 		return exitUsage
 	}
 
 	if *width < 0 || *height < 0 {
-		fmt.Println("Error: -width and -height cannot be negative")
+		fmt.Fprintln(os.Stderr, "Error: -width and -height cannot be negative")
 		return exitUsage
 	}
 
 	if *quality < 1 || *quality > 100 {
-		fmt.Println("Error: -q must be between 1 and 100")
+		fmt.Fprintln(os.Stderr, "Error: -q must be between 1 and 100")
 		return exitUsage
 	}
 
 	if *workers < 1 {
-		fmt.Println("Error: -workers must be at least 1")
+		fmt.Fprintln(os.Stderr, "Error: -workers must be at least 1")
 		return exitUsage
 	}
 
 	//checked up front so a batch doesn't fail the same way once per file
 	if _, err := format.GetEncoder(strings.ToLower(*targetFormat)); err != nil {
-		fmt.Printf("Error: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		return exitUsage
 	}
 
 	//create output directory if does not exist
 	err := os.MkdirAll(*outDir, os.ModePerm)
 	if err != nil {
-		fmt.Printf("Error creating output directory: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error creating output directory: %v\n", err)
 		return exitFailure
 	}
 
 	info, err := os.Stat(*inputPath)
 	if err != nil {
-		fmt.Printf("Error accessing input path: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error accessing input path: %v\n", err)
 		return exitFailure
 	}
 
@@ -103,11 +104,11 @@ func run(args []string) int {
 		var res converter.Result
 		res, err = converter.ProcessImage(ctx, *inputPath, *outDir, *targetFormat, *quality, *width, *height, *pixelart)
 		if err != nil {
-			fmt.Printf("Error processing file: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Error processing file: %v\n", err)
 		} else {
 			fmt.Printf("Saved converted file as: %s\n", res.OutPath)
 			for _, msg := range res.Warnings {
-				fmt.Printf("Warning: %s\n", msg)
+				fmt.Fprintf(os.Stderr, "Warning: %s\n", msg)
 			}
 		}
 	}

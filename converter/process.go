@@ -41,7 +41,7 @@ func ProcessImageTo(ctx context.Context, inputPath string, outPath string, outFo
 	if ext == ".gif" && outFormat == "gif" {
 		//keep every frame instead of collapsing the animation to a single image
 		if err := processGIFToGIF(inputPath, outPath, targetWidth, targetHeight, pixelart); err != nil {
-			return Result{}, fmt.Errorf("failed to process %s: %v", inputPath, err)
+			return Result{}, fmt.Errorf("failed to process %s: %w", inputPath, err)
 		}
 	} else {
 		enc, err := format.GetEncoder(outFormat)
@@ -51,7 +51,7 @@ func ProcessImageTo(ctx context.Context, inputPath string, outPath string, outFo
 
 		img, err := loadImage(inputPath)
 		if err != nil {
-			return Result{}, fmt.Errorf("failed to load %s: %v", inputPath, err)
+			return Result{}, fmt.Errorf("failed to load %s: %w", inputPath, err)
 		}
 
 		//the heic and avif decoders already turn the image themselves
@@ -62,12 +62,12 @@ func ProcessImageTo(ctx context.Context, inputPath string, outPath string, outFo
 		if targetWidth > 0 || targetHeight > 0 {
 			img, err = resizeImage(img, targetWidth, targetHeight, pixelart)
 			if err != nil {
-				return Result{}, fmt.Errorf("failed to resize %s: %v", inputPath, err)
+				return Result{}, fmt.Errorf("failed to resize %s: %w", inputPath, err)
 			}
 		}
 
 		if err := saveImage(img, outPath, enc, quality); err != nil {
-			return Result{}, fmt.Errorf("failed to save %s: %v", outPath, err)
+			return Result{}, fmt.Errorf("failed to save %s: %w", outPath, err)
 		}
 	}
 

@@ -2,6 +2,7 @@ package batch
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -36,8 +37,8 @@ func ProcessDirectory(ctx context.Context, dirPath string, outDir string, opts O
 	jobList, skipped, err := collectJobs(ctx, dirPath, outDir, opts.Recursive)
 
 	var walkErr error
-	if err != nil && err != context.Canceled {
-		fmt.Printf("Error reading directory: %v\n", err)
+	if err != nil && !errors.Is(err, context.Canceled) {
+		fmt.Fprintf(os.Stderr, "Error reading directory: %v\n", err)
 		walkErr = err
 	}
 
@@ -101,15 +102,16 @@ func ProcessDirectory(ctx context.Context, dirPath string, outDir string, opts O
 		fmt.Printf("Skipped %d unsupported files.\n", skipped)
 	}
 	if len(warnings) > 0 {
-		fmt.Printf("%d warnings:\n", len(warnings))
+		//problems go to stderr so they stay visible when the report is redirected
+		fmt.Fprintf(os.Stderr, "%d warnings:\n", len(warnings))
 		for _, msg := range warnings {
-			fmt.Printf("  ! %s\n", msg)
+			fmt.Fprintf(os.Stderr, "  ! %s\n", msg)
 		}
 	}
 	if len(failedJobs) > 0 {
-		fmt.Printf("Completed with %d errors:\n", len(failedJobs))
+		fmt.Fprintf(os.Stderr, "Completed with %d errors:\n", len(failedJobs))
 		for _, errMsg := range failedJobs {
-			fmt.Printf("  x %s\n", errMsg)
+			fmt.Fprintf(os.Stderr, "  x %s\n", errMsg)
 		}
 	} else if ctx.Err() == nil && walkErr == nil {
 		fmt.Println("All files processed successfully with zero errors.")
@@ -215,7 +217,7 @@ func resolveCollisions(jobs []Job) {
 func convert(ctx context.Context, job Job, opts Options) (converter.Result, error) {
 	//created on demand so folders without images don't leave empty copies behind
 	if err := os.MkdirAll(job.OutputDir, os.ModePerm); err != nil {
-		return converter.Result{}, fmt.Errorf("failed to create %s: %v", job.OutputDir, err)
+		return converter.Result{}, fmt.Errorf("failed to create %s: %w", job.OutputDir, err)
 	}
 	outPath := filepath.Join(job.OutputDir, job.OutputName+"."+strings.ToLower(opts.Format))
 	return converter.ProcessImageTo(ctx, job.InputPath, outPath, opts.Format, opts.Quality, opts.Width, opts.Height, opts.Pixelart)

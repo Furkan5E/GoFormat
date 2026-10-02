@@ -121,6 +121,8 @@ Converting an animated GIF to GIF keeps all frames. Converting it to any other f
 | `2` | Invalid usage, such as a missing `-i` |
 | `130` | Interrupted with Ctrl+C before finishing |
 
+Errors and warnings are written to stderr, so they stay visible when the normal output is redirected and can be captured separately with `2> errors.log`.
+
 ## Running Tests
 ```bash
 go test ./...

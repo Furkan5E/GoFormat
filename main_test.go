@@ -5,6 +5,7 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -48,5 +49,35 @@ func TestRunExitCodes(t *testing.T) {
 				t.Errorf("run(%v) = %d, want %d", tt.args, got, tt.want)
 			}
 		})
+	}
+}
+
+//errors used to go to stdout, where they mixed into piped output and were missed by 2> redirects
+func TestRunWritesErrorsToStderr(t *testing.T) {
+	dir := t.TempDir()
+	stdout, err := os.Create(filepath.Join(dir, "stdout.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	stderr, err := os.Create(filepath.Join(dir, "stderr.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	oldStdout, oldStderr := os.Stdout, os.Stderr
+	os.Stdout, os.Stderr = stdout, stderr
+	code := run([]string{"-i", filepath.Join(dir, "nope.png"), "-o", filepath.Join(dir, "out")})
+	os.Stdout, os.Stderr = oldStdout, oldStderr
+	stdout.Close()
+	stderr.Close()
+
+	if code != exitFailure {
+		t.Fatalf("run = %d, want %d", code, exitFailure)
+	}
+	if got, _ := os.ReadFile(stderr.Name()); !strings.Contains(string(got), "Error accessing input path") {
+		t.Errorf("stderr = %q, want the error message", got)
+	}
+	if got, _ := os.ReadFile(stdout.Name()); strings.Contains(string(got), "Error") {
+		t.Errorf("stdout = %q, want no error message", got)
 	}
 }

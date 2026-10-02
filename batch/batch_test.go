@@ -2,6 +2,7 @@ package batch
 
 import (
 	"context"
+	"errors"
 	"image"
 	"image/png"
 	"os"
@@ -162,7 +163,7 @@ func TestProcessDirectoryCancelled(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if err := ProcessDirectory(ctx, in, out, Options{Format: "png", Quality: 85, Workers: 1}); err != context.Canceled {
+	if err := ProcessDirectory(ctx, in, out, Options{Format: "png", Quality: 85, Workers: 1}); !errors.Is(err, context.Canceled) {
 		t.Errorf("err = %v, want context.Canceled", err)
 	}
 }
