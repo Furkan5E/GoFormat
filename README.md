@@ -42,7 +42,9 @@ Download the binary for your platform from the [latest release](https://github.c
 |----------|------|
 | Windows (64-bit) | `goformat-windows-amd64.exe` |
 | Linux (64-bit) | `goformat-linux-amd64` |
+| Linux (ARM 64-bit) | `goformat-linux-arm64` |
 | macOS (Apple Silicon) | `goformat-macos-arm64` |
+| macOS (Intel) | `goformat-macos-amd64` |
 
 Each release includes a `checksums.txt` for verifying downloads. On Linux and macOS, make the file executable first:
 ```bash

@@ -5,18 +5,34 @@ on:
     branches: [ "master" ]
   pull_request:
     branches: [ "master" ]
+  # lets the release workflow run the same checks and builds
+  workflow_call:
+
+permissions:
+  contents: read
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      CGO_ENABLED: 0
     steps:
     - name: Checkout Code
       uses: actions/checkout@v7
-    
+
     - name: Set up Go
       uses: actions/setup-go@v7
       with:
         go-version-file: go.mod
+
+    - name: Check Formatting
+      run: |
+        unformatted=$(gofmt -l .)
+        if [ -n "$unformatted" ]; then
+          echo "These files need gofmt:"
+          echo "$unformatted"
+          exit 1
+        fi
 
     - name: Vet
       run: go vet ./...
@@ -24,11 +40,21 @@ jobs:
     - name: Test
       run: go test ./...
 
-    - name: Build Windows Binary
-      run: GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o bin/goformat-windows-amd64.exe main.go
+    - name: Build Binaries
+      run: |
+        build() {
+          GOOS=$1 GOARCH=$2 go build -trimpath -ldflags="-s -w" -o "bin/$3" .
+        }
+        build windows amd64 goformat-windows-amd64.exe
+        build linux   amd64 goformat-linux-amd64
+        build linux   arm64 goformat-linux-arm64
+        build darwin  arm64 goformat-macos-arm64
+        build darwin  amd64 goformat-macos-amd64
 
-    - name: Build Linux Binary
-      run: GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o bin/goformat-linux-amd64 main.go
-
-    - name: Build macOS Binary (Apple Silicon)
-      run: GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o bin/goformat-macos-arm64 main.go
+    - name: Upload Binaries
+      uses: actions/upload-artifact@v7
+      with:
+        name: binaries
+        path: bin/
+        if-no-files-found: error
+        retention-days: 7
