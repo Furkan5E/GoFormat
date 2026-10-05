@@ -51,6 +51,13 @@ Each release includes a `checksums.txt` for verifying downloads. On Linux and ma
 chmod +x goformat-linux-amd64
 ```
 
+### Install with Go
+Requires Go 1.27 or newer.
+```bash
+go install github.com/Furkan5E/GoFormat/v2@latest
+```
+This installs the tool as `GoFormat` in your Go bin directory.
+
 ### Build from Source
 Requires Go 1.27 or newer.
 ```bash

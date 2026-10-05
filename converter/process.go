@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"goformat/format"
+	"github.com/Furkan5E/GoFormat/v2/format"
 
 	"golang.org/x/image/draw"
 )

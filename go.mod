@@ -1,4 +1,4 @@
-module goformat
+module github.com/Furkan5E/GoFormat/v2
 
 go 1.27.0
 

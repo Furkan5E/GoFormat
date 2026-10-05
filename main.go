@@ -11,9 +11,9 @@ import (
 	"strings"
 	"syscall"
 
-	"goformat/batch"
-	"goformat/converter"
-	"goformat/format"
+	"github.com/Furkan5E/GoFormat/v2/batch"
+	"github.com/Furkan5E/GoFormat/v2/converter"
+	"github.com/Furkan5E/GoFormat/v2/format"
 )
 
 // exit codes

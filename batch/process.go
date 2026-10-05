@@ -9,8 +9,8 @@ import (
 	"strings"
 	"sync"
 
-	"goformat/converter"
-	"goformat/format"
+	"github.com/Furkan5E/GoFormat/v2/converter"
+	"github.com/Furkan5E/GoFormat/v2/format"
 )
 
 type Job struct {

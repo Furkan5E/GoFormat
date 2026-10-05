@@ -8,7 +8,7 @@ import (
 	"io"
 	"os"
 
-	"goformat/format"
+	"github.com/Furkan5E/GoFormat/v2/format"
 )
 
 func loadGIF(path string) (*gif.GIF, error) {
