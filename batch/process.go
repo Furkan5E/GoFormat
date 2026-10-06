@@ -45,7 +45,7 @@ func ProcessDirectory(ctx context.Context, dirPath string, outDir string, opts O
 	var errMu sync.Mutex
 	var failedJobs []string
 	var warnings []string
-	replaced := 0
+	replaced, existing := 0, 0
 
 	if len(jobList) > 0 && ctx.Err() == nil {
 		numWorkers := min(opts.Workers, len(jobList))
@@ -73,6 +73,9 @@ func ProcessDirectory(ctx context.Context, dirPath string, outDir string, opts O
 					warnings = append(warnings, res.Warnings...)
 					if res.Replaced {
 						replaced++
+					}
+					if res.Skipped {
+						existing++
 					}
 					errMu.Unlock()
 					bar.finish(res, err)
@@ -103,6 +106,9 @@ func ProcessDirectory(ctx context.Context, dirPath string, outDir string, opts O
 	}
 	if replaced > 0 {
 		fmt.Printf("Replaced %d files that already existed.\n", replaced)
+	}
+	if existing > 0 {
+		fmt.Printf("Skipped %d files that already existed.\n", existing)
 	}
 	if len(warnings) > 0 {
 		//problems go to stderr so they stay visible when the report is redirected

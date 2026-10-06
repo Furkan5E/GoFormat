@@ -412,3 +412,35 @@ func TestProcessImageReportsReplacedFiles(t *testing.T) {
 		t.Error("Replaced = false when the output already existed")
 	}
 }
+
+func TestProcessImageSkipExisting(t *testing.T) {
+	dir := t.TempDir()
+	in := filepath.Join(dir, "a.png")
+	writePNG(t, in, image.NewRGBA(image.Rect(0, 0, 4, 4)))
+	out := filepath.Join(dir, "a.jpeg")
+	opts := Options{Format: "jpeg", Quality: 85, SkipExisting: true}
+
+	//nothing to skip yet, so the file is converted as usual
+	res, err := ProcessImage(context.Background(), in, dir, opts)
+	if err != nil || res.Skipped {
+		t.Fatalf("first run: Skipped = %v, err = %v", res.Skipped, err)
+	}
+
+	os.WriteFile(out, []byte("existing"), 0o644)
+	res, err = ProcessImage(context.Background(), in, dir, opts)
+	if err != nil {
+		t.Fatalf("ProcessImage: %v", err)
+	}
+	if !res.Skipped || res.Replaced {
+		t.Errorf("Skipped = %v, Replaced = %v, want true and false", res.Skipped, res.Replaced)
+	}
+	if data, _ := os.ReadFile(out); string(data) != "existing" {
+		t.Errorf("existing output was changed to %q", data)
+	}
+
+	//converting onto the input is an error without the flag, with it the file is just skipped
+	opts.Format = "png"
+	if res, err := ProcessImage(context.Background(), in, dir, opts); err != nil || !res.Skipped {
+		t.Errorf("same file: Skipped = %v, err = %v, want it skipped", res.Skipped, err)
+	}
+}

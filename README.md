@@ -105,6 +105,10 @@ Set only `-width` or only `-height` to keep the original aspect ratio. Setting b
 
 ### Existing Files
 * A file already in the output directory with the same name is replaced. The output says when that happened, and the batch report counts the replaced files.
+* With `-skip-existing` those files are left untouched instead. This also lets an interrupted batch carry on where it stopped, as only the missing files are converted:
+```bash
+.\goformat.exe -i pictures -r -f webp -skip-existing
+```
 * A file is never converted onto itself. Pointing `-o` at the input's own directory without changing the format fails for that file instead of destroying the original.
 
 ### Animated GIFs
@@ -122,6 +126,7 @@ Converting an animated GIF to GIF keeps all frames. Converting it to any other f
 | `-height` | Target height in pixels (0 to keep original) | `0` |
 | `-pixel` | Use nearest neighbour scaling to preserve pixel edges | `false` |
 | `-r` | Process subdirectories recursively | `false` |
+| `-skip-existing` | Leave files that already exist in the output directory untouched | `false` |
 | `-workers` | Number of images to convert at once in batch mode | CPU cores |
 | `-h` | Show help | |
 

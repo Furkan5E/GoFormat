@@ -24,11 +24,16 @@ type Result struct {
 	OutPath string
 	//a file was already at OutPath and has been replaced
 	Replaced bool
+	//a file was already at OutPath and has been left alone
+	Skipped  bool
 	Warnings []string
 }
 
 // Summary is the one line printed for a finished file
 func (r Result) Summary() string {
+	if r.Skipped {
+		return fmt.Sprintf("Skipped existing file: %s", r.OutPath)
+	}
 	if r.Replaced {
 		return fmt.Sprintf("Saved converted file as: %s (replaced existing file)", r.OutPath)
 	}
@@ -44,6 +49,8 @@ type Options struct {
 	Width    int
 	Height   int
 	Pixelart bool
+	//leave files that already exist at the output path alone instead of replacing them
+	SkipExisting bool
 }
 
 func ProcessImage(ctx context.Context, inputPath string, outDir string, opts Options) (Result, error) {
@@ -57,9 +64,12 @@ func ProcessImageTo(ctx context.Context, inputPath string, outPath string, opts 
 		return Result{}, ctx.Err()
 	}
 
-	replaced, err := checkOutput(inputPath, outPath)
+	replaced, err := checkOutput(inputPath, outPath, opts)
 	if err != nil {
 		return Result{}, err
+	}
+	if replaced && opts.SkipExisting {
+		return Result{OutPath: outPath, Skipped: true}, nil
 	}
 
 	outFormat := strings.ToLower(opts.Format)
@@ -115,7 +125,7 @@ func ProcessImageTo(ctx context.Context, inputPath string, outPath string, opts 
 
 // checkOutput reports whether a file is already at outPath, and refuses to convert a file onto itself
 // that happens when the output directory is the input's own and the format is unchanged, and would destroy the original
-func checkOutput(inputPath, outPath string) (exists bool, err error) {
+func checkOutput(inputPath, outPath string, opts Options) (exists bool, err error) {
 	outInfo, err := os.Stat(outPath)
 	if err != nil {
 		//anything other than a missing file is left for the write to report
@@ -123,6 +133,10 @@ func checkOutput(inputPath, outPath string) (exists bool, err error) {
 	}
 	if outInfo.IsDir() {
 		return false, fmt.Errorf("cannot write %s: a directory has that name", outPath)
+	}
+	//a skipped file is not written to, so it is safe even when it is the input
+	if opts.SkipExisting {
+		return true, nil
 	}
 	if inInfo, err := os.Stat(inputPath); err == nil && os.SameFile(inInfo, outInfo) {
 		return false, fmt.Errorf("%s: %w", inputPath, ErrOverwritesInput)

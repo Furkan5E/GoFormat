@@ -180,3 +180,21 @@ func TestProgressETA(t *testing.T) {
 		t.Errorf("eta when finished = %q, want \"done in ...\"", got)
 	}
 }
+
+// rerunning a batch with -skip-existing only converts what is missing
+func TestProcessDirectorySkipExisting(t *testing.T) {
+	in, out := t.TempDir(), t.TempDir()
+	makeTree(t, in, "a.png", "b.png")
+	os.WriteFile(filepath.Join(out, "a.jpeg"), []byte("existing"), 0o644)
+
+	opts := Options{Options: converter.Options{Format: "jpeg", Quality: 85, SkipExisting: true}, Workers: 2}
+	if err := ProcessDirectory(context.Background(), in, out, opts); err != nil {
+		t.Fatalf("ProcessDirectory: %v", err)
+	}
+	if data, _ := os.ReadFile(filepath.Join(out, "a.jpeg")); string(data) != "existing" {
+		t.Error("existing output was replaced")
+	}
+	if _, err := os.Stat(filepath.Join(out, "b.jpeg")); err != nil {
+		t.Error("missing output was not converted")
+	}
+}
