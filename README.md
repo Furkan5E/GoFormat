@@ -103,6 +103,10 @@ Set only `-width` or only `-height` to keep the original aspect ratio. Setting b
 * A progress bar with an estimated time remaining is shown in the terminal. When output is redirected to a file or another program, one line per file is printed instead.
 * The final report lists skipped unsupported files, failed files and any warnings.
 
+### Existing Files
+* A file already in the output directory with the same name is replaced. The output says when that happened, and the batch report counts the replaced files.
+* A file is never converted onto itself. Pointing `-o` at the input's own directory without changing the format fails for that file instead of destroying the original.
+
 ### Animated GIFs
 Converting an animated GIF to GIF keeps all frames. Converting it to any other format keeps only the first frame, as those formats do not support animation.
 

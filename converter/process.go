@@ -2,6 +2,7 @@ package converter
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"image"
 	"io"
@@ -14,11 +15,24 @@ import (
 	"golang.org/x/image/draw"
 )
 
+// ErrOverwritesInput is returned when the output path is the input file itself
+var ErrOverwritesInput = errors.New("output would overwrite the input, choose another output directory or format")
+
 // Result describes a successful conversion
 // warnings are returned rather than printed so batch mode can report them without breaking the progress bar
 type Result struct {
-	OutPath  string
+	OutPath string
+	//a file was already at OutPath and has been replaced
+	Replaced bool
 	Warnings []string
+}
+
+// Summary is the one line printed for a finished file
+func (r Result) Summary() string {
+	if r.Replaced {
+		return fmt.Sprintf("Saved converted file as: %s (replaced existing file)", r.OutPath)
+	}
+	return fmt.Sprintf("Saved converted file as: %s", r.OutPath)
 }
 
 // Options are the settings shared by every file of a run
@@ -41,6 +55,11 @@ func ProcessImage(ctx context.Context, inputPath string, outDir string, opts Opt
 func ProcessImageTo(ctx context.Context, inputPath string, outPath string, opts Options) (Result, error) {
 	if ctx.Err() != nil {
 		return Result{}, ctx.Err()
+	}
+
+	replaced, err := checkOutput(inputPath, outPath)
+	if err != nil {
+		return Result{}, err
 	}
 
 	outFormat := strings.ToLower(opts.Format)
@@ -82,7 +101,7 @@ func ProcessImageTo(ctx context.Context, inputPath string, outPath string, opts 
 		}
 	}
 
-	res := Result{OutPath: outPath}
+	res := Result{OutPath: outPath, Replaced: replaced}
 
 	//reinject metadata
 	if meta.HasMetadata {
@@ -92,6 +111,23 @@ func ProcessImageTo(ctx context.Context, inputPath string, outPath string, opts 
 	}
 
 	return res, nil
+}
+
+// checkOutput reports whether a file is already at outPath, and refuses to convert a file onto itself
+// that happens when the output directory is the input's own and the format is unchanged, and would destroy the original
+func checkOutput(inputPath, outPath string) (exists bool, err error) {
+	outInfo, err := os.Stat(outPath)
+	if err != nil {
+		//anything other than a missing file is left for the write to report
+		return false, nil
+	}
+	if outInfo.IsDir() {
+		return false, fmt.Errorf("cannot write %s: a directory has that name", outPath)
+	}
+	if inInfo, err := os.Stat(inputPath); err == nil && os.SameFile(inInfo, outInfo) {
+		return false, fmt.Errorf("%s: %w", inputPath, ErrOverwritesInput)
+	}
+	return true, nil
 }
 
 func resizeImage(src image.Image, targetW, targetH int, pixelart bool) (image.Image, error) {

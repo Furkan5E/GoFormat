@@ -374,3 +374,41 @@ func TestProcessGIFToGIFResize(t *testing.T) {
 		}
 	}
 }
+
+// converting a file into its own folder and format used to replace the original with the converted copy
+func TestProcessImageRefusesToOverwriteInput(t *testing.T) {
+	dir := t.TempDir()
+	in := filepath.Join(dir, "a.png")
+	writePNG(t, in, image.NewRGBA(image.Rect(0, 0, 20, 10)))
+	before, _ := os.ReadFile(in)
+
+	_, err := ProcessImage(context.Background(), in, dir, Options{Format: "png", Quality: 85, Width: 10})
+	if !errors.Is(err, ErrOverwritesInput) {
+		t.Fatalf("err = %v, want ErrOverwritesInput", err)
+	}
+	if after, _ := os.ReadFile(in); !bytes.Equal(before, after) {
+		t.Error("the input file was changed")
+	}
+}
+
+func TestProcessImageReportsReplacedFiles(t *testing.T) {
+	dir := t.TempDir()
+	in := filepath.Join(dir, "a.png")
+	writePNG(t, in, image.NewRGBA(image.Rect(0, 0, 4, 4)))
+
+	res, err := ProcessImage(context.Background(), in, dir, Options{Format: "jpeg", Quality: 85})
+	if err != nil {
+		t.Fatalf("ProcessImage: %v", err)
+	}
+	if res.Replaced {
+		t.Error("Replaced = true for a new file")
+	}
+
+	res, err = ProcessImage(context.Background(), in, dir, Options{Format: "jpeg", Quality: 85})
+	if err != nil {
+		t.Fatalf("ProcessImage: %v", err)
+	}
+	if !res.Replaced {
+		t.Error("Replaced = false when the output already existed")
+	}
+}

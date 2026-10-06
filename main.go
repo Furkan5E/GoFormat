@@ -110,7 +110,7 @@ func run(args []string) int {
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error processing file: %v\n", err)
 		} else {
-			fmt.Printf("Saved converted file as: %s\n", res.OutPath)
+			fmt.Println(res.Summary())
 			for _, msg := range res.Warnings {
 				fmt.Fprintf(os.Stderr, "Warning: %s\n", msg)
 			}

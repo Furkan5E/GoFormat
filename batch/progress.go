@@ -6,6 +6,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/Furkan5E/GoFormat/v2/converter"
 )
 
 const (
@@ -40,7 +42,7 @@ func isTerminal(f *os.File) bool {
 }
 
 // record a finished job
-func (p *progress) finish(outPath string, err error) {
+func (p *progress) finish(res converter.Result, err error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -51,7 +53,7 @@ func (p *progress) finish(outPath string, err error) {
 
 	if !p.interactive {
 		if err == nil {
-			fmt.Printf("Saved converted file as: %s\n", outPath)
+			fmt.Println(res.Summary())
 		}
 		return
 	}
