@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/Furkan5E/GoFormat/v2/converter"
 )
 
 // build a folder tree, writing a small png for each .png path and a text file for anything else
@@ -113,7 +115,7 @@ func TestProcessDirectoryNameCollisions(t *testing.T) {
 	}
 	os.WriteFile(filepath.Join(in, "a.bmp"), data, 0o644)
 
-	if err := ProcessDirectory(context.Background(), in, out, Options{Format: "jpeg", Quality: 85, Workers: 2}); err != nil {
+	if err := ProcessDirectory(context.Background(), in, out, Options{Options: converter.Options{Format: "jpeg", Quality: 85}, Workers: 2}); err != nil {
 		t.Fatalf("ProcessDirectory: %v", err)
 	}
 	for _, want := range []string{"a_png.jpeg", "a_bmp.jpeg"} {
@@ -127,7 +129,7 @@ func TestProcessDirectory(t *testing.T) {
 	in, out := t.TempDir(), t.TempDir()
 	makeTree(t, in, "a.png", "sub/b.png", "noimages/readme.txt")
 
-	err := ProcessDirectory(context.Background(), in, out, Options{Format: "jpeg", Quality: 85, Recursive: true, Workers: 2})
+	err := ProcessDirectory(context.Background(), in, out, Options{Options: converter.Options{Format: "jpeg", Quality: 85}, Recursive: true, Workers: 2})
 	if err != nil {
 		t.Fatalf("ProcessDirectory: %v", err)
 	}
@@ -148,7 +150,7 @@ func TestProcessDirectoryReportsFailures(t *testing.T) {
 	makeTree(t, in, "good.png")
 	os.WriteFile(filepath.Join(in, "broken.png"), []byte("not a png"), 0o644)
 
-	err := ProcessDirectory(context.Background(), in, out, Options{Format: "png", Quality: 85, Workers: 1})
+	err := ProcessDirectory(context.Background(), in, out, Options{Options: converter.Options{Format: "png", Quality: 85}, Workers: 1})
 	if err == nil {
 		t.Fatal("expected an error when a file fails")
 	}
@@ -163,7 +165,7 @@ func TestProcessDirectoryCancelled(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if err := ProcessDirectory(ctx, in, out, Options{Format: "png", Quality: 85, Workers: 1}); !errors.Is(err, context.Canceled) {
+	if err := ProcessDirectory(ctx, in, out, Options{Options: converter.Options{Format: "png", Quality: 85}, Workers: 1}); !errors.Is(err, context.Canceled) {
 		t.Errorf("err = %v, want context.Canceled", err)
 	}
 }

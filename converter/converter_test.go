@@ -81,7 +81,7 @@ func TestProcessImage(t *testing.T) {
 	in := filepath.Join(dir, "a.png")
 	writePNG(t, in, image.NewRGBA(image.Rect(0, 0, 20, 10)))
 
-	res, err := ProcessImage(context.Background(), in, dir, "jpeg", 85, 10, 0, false)
+	res, err := ProcessImage(context.Background(), in, dir, Options{Format: "jpeg", Quality: 85, Width: 10})
 	if err != nil {
 		t.Fatalf("ProcessImage: %v", err)
 	}
@@ -111,7 +111,7 @@ func TestProcessImageFailureLeavesNoPartialFile(t *testing.T) {
 	out := filepath.Join(dir, "a.ico")
 
 	//ico cannot hold a 600x600 image, so the encoder fails after the output file is opened
-	if _, err := ProcessImage(context.Background(), in, dir, "ico", 85, 0, 0, false); err == nil {
+	if _, err := ProcessImage(context.Background(), in, dir, Options{Format: "ico", Quality: 85}); err == nil {
 		t.Fatal("expected an error")
 	}
 	if _, err := os.Stat(out); err == nil {
@@ -119,7 +119,7 @@ func TestProcessImageFailureLeavesNoPartialFile(t *testing.T) {
 	}
 
 	os.WriteFile(out, []byte("existing"), 0o644)
-	if _, err := ProcessImage(context.Background(), in, dir, "ico", 85, 0, 0, false); err == nil {
+	if _, err := ProcessImage(context.Background(), in, dir, Options{Format: "ico", Quality: 85}); err == nil {
 		t.Fatal("expected an error")
 	}
 	if data, _ := os.ReadFile(out); string(data) != "existing" {
@@ -127,7 +127,7 @@ func TestProcessImageFailureLeavesNoPartialFile(t *testing.T) {
 	}
 
 	//a successful conversion replaces the existing file
-	if _, err := ProcessImage(context.Background(), in, dir, "ico", 85, 64, 0, false); err != nil {
+	if _, err := ProcessImage(context.Background(), in, dir, Options{Format: "ico", Quality: 85, Width: 64}); err != nil {
 		t.Fatalf("ProcessImage: %v", err)
 	}
 	if data, _ := os.ReadFile(out); string(data) == "existing" {
@@ -221,7 +221,7 @@ func TestProcessImageAppliesOrientation(t *testing.T) {
 	}
 	writeOrientedJPEG(t, in, src, 6)
 
-	res, err := ProcessImage(context.Background(), in, dir, "png", 85, 0, 0, false)
+	res, err := ProcessImage(context.Background(), in, dir, Options{Format: "png", Quality: 85})
 	if err != nil {
 		t.Fatalf("ProcessImage: %v", err)
 	}
@@ -264,7 +264,7 @@ func TestProcessImageErrors(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if _, err := ProcessImage(tt.ctx, tt.input, dir, tt.format, 85, 0, 0, false); err == nil {
+			if _, err := ProcessImage(tt.ctx, tt.input, dir, Options{Format: tt.format, Quality: 85}); err == nil {
 				t.Error("expected an error")
 			}
 		})
@@ -274,7 +274,7 @@ func TestProcessImageErrors(t *testing.T) {
 // errors keep their cause so callers can tell a missing file from a corrupt one
 func TestProcessImageErrorsKeepCause(t *testing.T) {
 	dir := t.TempDir()
-	_, err := ProcessImage(context.Background(), filepath.Join(dir, "nope.png"), dir, "png", 85, 0, 0, false)
+	_, err := ProcessImage(context.Background(), filepath.Join(dir, "nope.png"), dir, Options{Format: "png", Quality: 85})
 	if !errors.Is(err, os.ErrNotExist) {
 		t.Errorf("err = %v, want it to wrap os.ErrNotExist", err)
 	}
@@ -323,7 +323,7 @@ func TestProcessGIFToGIFKeepsFrames(t *testing.T) {
 	in, out := filepath.Join(dir, "in.gif"), filepath.Join(dir, "out.gif")
 	writeMovingSprite(t, in)
 
-	if err := processGIFToGIF(in, out, 0, 0, false); err != nil {
+	if err := processGIFToGIF(in, out, Options{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -345,7 +345,7 @@ func TestProcessGIFToGIFResize(t *testing.T) {
 		in, out := filepath.Join(dir, "in.gif"), filepath.Join(dir, "out.gif")
 		writeMovingSprite(t, in)
 
-		if err := processGIFToGIF(in, out, 16, 0, pixelart); err != nil {
+		if err := processGIFToGIF(in, out, Options{Width: 16, Pixelart: pixelart}); err != nil {
 			t.Fatal(err)
 		}
 

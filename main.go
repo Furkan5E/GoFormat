@@ -90,19 +90,23 @@ func run(args []string) int {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
+	opts := converter.Options{
+		Format:   *targetFormat,
+		Quality:  *quality,
+		Width:    *width,
+		Height:   *height,
+		Pixelart: *pixelart,
+	}
+
 	if info.IsDir() {
 		err = batch.ProcessDirectory(ctx, *inputPath, *outDir, batch.Options{
-			Format:    *targetFormat,
-			Quality:   *quality,
-			Width:     *width,
-			Height:    *height,
-			Pixelart:  *pixelart,
+			Options:   opts,
 			Recursive: *recursive,
 			Workers:   *workers,
 		})
 	} else {
 		var res converter.Result
-		res, err = converter.ProcessImage(ctx, *inputPath, *outDir, *targetFormat, *quality, *width, *height, *pixelart)
+		res, err = converter.ProcessImage(ctx, *inputPath, *outDir, opts)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error processing file: %v\n", err)
 		} else {

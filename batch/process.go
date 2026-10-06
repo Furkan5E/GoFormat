@@ -21,11 +21,7 @@ type Job struct {
 }
 
 type Options struct {
-	Format    string
-	Quality   int
-	Width     int
-	Height    int
-	Pixelart  bool
+	converter.Options
 	Recursive bool
 	Workers   int
 }
@@ -220,5 +216,5 @@ func convert(ctx context.Context, job Job, opts Options) (converter.Result, erro
 		return converter.Result{}, fmt.Errorf("failed to create %s: %w", job.OutputDir, err)
 	}
 	outPath := filepath.Join(job.OutputDir, job.OutputName+"."+strings.ToLower(opts.Format))
-	return converter.ProcessImageTo(ctx, job.InputPath, outPath, opts.Format, opts.Quality, opts.Width, opts.Height, opts.Pixelart)
+	return converter.ProcessImageTo(ctx, job.InputPath, outPath, opts.Options)
 }

@@ -22,14 +22,14 @@ func loadGIF(path string) (*gif.GIF, error) {
 }
 
 // preserve every frame of GIF
-func processGIFToGIF(inputPath, outPath string, targetWidth, targetHeight int, pixelart bool) error {
+func processGIFToGIF(inputPath, outPath string, opts Options) error {
 	g, err := loadGIF(inputPath)
 	if err != nil {
 		return err
 	}
 
 	//no resize
-	if targetWidth == 0 && targetHeight == 0 {
+	if opts.Width == 0 && opts.Height == 0 {
 		return writeGIF(outPath, g)
 	}
 
@@ -47,13 +47,13 @@ func processGIFToGIF(inputPath, outPath string, targetWidth, targetHeight int, p
 
 		stddraw.Draw(canvas, frame.Bounds(), frame, frame.Bounds().Min, stddraw.Over)
 
-		resized, err := resizeImage(canvas, targetWidth, targetHeight, pixelart)
+		resized, err := resizeImage(canvas, opts.Width, opts.Height, opts.Pixelart)
 		if err != nil {
 			return err
 		}
 
 		//dithering smooths the blended colours bilinear scaling produces; pixel art skips it to keep hard edges
-		frames[i] = format.Quantise(format.Flatten(resized), pal, !pixelart)
+		frames[i] = format.Quantise(format.Flatten(resized), pal, !opts.Pixelart)
 
 		switch g.Disposal[i] {
 		case gif.DisposalBackground:

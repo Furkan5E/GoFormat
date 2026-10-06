@@ -21,18 +21,29 @@ type Result struct {
 	Warnings []string
 }
 
-func ProcessImage(ctx context.Context, inputPath string, outDir string, outFormat string, quality int, targetWidth int, targetHeight int, pixelart bool) (Result, error) {
-	outPath := generateOutputPath(inputPath, outDir, strings.ToLower(outFormat))
-	return ProcessImageTo(ctx, inputPath, outPath, outFormat, quality, targetWidth, targetHeight, pixelart)
+// Options are the settings shared by every file of a run
+type Options struct {
+	//target format name, such as jpeg or png
+	Format  string
+	Quality int
+	//target size in pixels, 0 keeps the original
+	Width    int
+	Height   int
+	Pixelart bool
+}
+
+func ProcessImage(ctx context.Context, inputPath string, outDir string, opts Options) (Result, error) {
+	outPath := generateOutputPath(inputPath, outDir, strings.ToLower(opts.Format))
+	return ProcessImageTo(ctx, inputPath, outPath, opts)
 }
 
 // ProcessImageTo converts to an exact output path, for callers that choose the file name themselves
-func ProcessImageTo(ctx context.Context, inputPath string, outPath string, outFormat string, quality int, targetWidth int, targetHeight int, pixelart bool) (Result, error) {
+func ProcessImageTo(ctx context.Context, inputPath string, outPath string, opts Options) (Result, error) {
 	if ctx.Err() != nil {
 		return Result{}, ctx.Err()
 	}
 
-	outFormat = strings.ToLower(outFormat)
+	outFormat := strings.ToLower(opts.Format)
 	ext := strings.ToLower(filepath.Ext(inputPath))
 
 	//extract historical metadata
@@ -40,7 +51,7 @@ func ProcessImageTo(ctx context.Context, inputPath string, outPath string, outFo
 
 	if ext == ".gif" && outFormat == "gif" {
 		//keep every frame instead of collapsing the animation to a single image
-		if err := processGIFToGIF(inputPath, outPath, targetWidth, targetHeight, pixelart); err != nil {
+		if err := processGIFToGIF(inputPath, outPath, opts); err != nil {
 			return Result{}, fmt.Errorf("failed to process %s: %w", inputPath, err)
 		}
 	} else {
@@ -59,14 +70,14 @@ func ProcessImageTo(ctx context.Context, inputPath string, outPath string, outFo
 			img = applyOrientation(img, meta.Orientation)
 		}
 
-		if targetWidth > 0 || targetHeight > 0 {
-			img, err = resizeImage(img, targetWidth, targetHeight, pixelart)
+		if opts.Width > 0 || opts.Height > 0 {
+			img, err = resizeImage(img, opts.Width, opts.Height, opts.Pixelart)
 			if err != nil {
 				return Result{}, fmt.Errorf("failed to resize %s: %w", inputPath, err)
 			}
 		}
 
-		if err := saveImage(img, outPath, enc, quality); err != nil {
+		if err := saveImage(img, outPath, enc, opts.Quality); err != nil {
 			return Result{}, fmt.Errorf("failed to save %s: %w", outPath, err)
 		}
 	}
