@@ -24,10 +24,21 @@ type Options struct {
 	converter.Options
 	Recursive bool
 	Workers   int
+	//print a detailed line per file instead of the progress bar
+	Verbose bool
+	//print nothing but errors and warnings
+	Quiet bool
+}
+
+// say prints progress information, which Quiet turns off
+func (o Options) say(format string, args ...any) {
+	if !o.Quiet {
+		fmt.Printf(format, args...)
+	}
 }
 
 func ProcessDirectory(ctx context.Context, dirPath string, outDir string, opts Options) error {
-	fmt.Printf("Scanning directory: %s\n", dirPath)
+	opts.say("Scanning directory: %s\n", dirPath)
 
 	//collect everything first so the progress bar knows the total
 	jobList, skipped, err := collectJobs(ctx, dirPath, outDir, opts.Recursive)
@@ -39,7 +50,7 @@ func ProcessDirectory(ctx context.Context, dirPath string, outDir string, opts O
 	}
 
 	if ctx.Err() == nil {
-		fmt.Printf("Found %d images to convert\n", len(jobList))
+		opts.say("Found %d images to convert\n", len(jobList))
 	}
 
 	var errMu sync.Mutex
@@ -53,10 +64,10 @@ func ProcessDirectory(ctx context.Context, dirPath string, outDir string, opts O
 			//nothing is converted, and a single worker lists the files in order
 			numWorkers = 1
 		} else {
-			fmt.Printf("Initialising worker pool with %d concurrent threads...\n", numWorkers)
+			opts.say("Initialising worker pool with %d concurrent threads...\n", numWorkers)
 		}
 
-		bar := newProgress(len(jobList), opts.DryRun)
+		bar := newProgress(len(jobList), opts)
 		jobs := make(chan Job, 100)
 		var wg sync.WaitGroup
 
@@ -105,30 +116,30 @@ func ProcessDirectory(ctx context.Context, dirPath string, outDir string, opts O
 	}
 
 	if opts.DryRun {
-		fmt.Println("\n=== Dry Run Report ===")
-		fmt.Println("Nothing was written.")
-		fmt.Printf("Would convert %d files.\n", converted)
+		opts.say("\n=== Dry Run Report ===\n")
+		opts.say("Nothing was written.\n")
+		opts.say("Would convert %d files.\n", converted)
 	} else {
-		fmt.Println("\n=== Batch Processing Report ===")
+		opts.say("\n=== Batch Processing Report ===\n")
 	}
 	if ctx.Err() != nil {
-		fmt.Println("Process was cancelled. Partial results saved.")
+		opts.say("Process was cancelled. Partial results saved.\n")
 	}
 	if skipped > 0 {
-		fmt.Printf("Skipped %d unsupported files.\n", skipped)
+		opts.say("Skipped %d unsupported files.\n", skipped)
 	}
 	if replaced > 0 {
 		if opts.DryRun {
-			fmt.Printf("Would replace %d files that already exist.\n", replaced)
+			opts.say("Would replace %d files that already exist.\n", replaced)
 		} else {
-			fmt.Printf("Replaced %d files that already existed.\n", replaced)
+			opts.say("Replaced %d files that already existed.\n", replaced)
 		}
 	}
 	if existing > 0 {
 		if opts.DryRun {
-			fmt.Printf("Would skip %d files that already exist.\n", existing)
+			opts.say("Would skip %d files that already exist.\n", existing)
 		} else {
-			fmt.Printf("Skipped %d files that already existed.\n", existing)
+			opts.say("Skipped %d files that already existed.\n", existing)
 		}
 	}
 	if len(warnings) > 0 {
@@ -144,7 +155,7 @@ func ProcessDirectory(ctx context.Context, dirPath string, outDir string, opts O
 			fmt.Fprintf(os.Stderr, "  x %s\n", errMsg)
 		}
 	} else if ctx.Err() == nil && walkErr == nil && !opts.DryRun {
-		fmt.Println("All files processed successfully with zero errors.")
+		opts.say("All files processed successfully with zero errors.\n")
 	}
 
 	switch {

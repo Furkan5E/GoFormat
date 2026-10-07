@@ -109,6 +109,10 @@ Add `-dry-run` to see what a command would do before running it for real. It lis
 .\goformat.exe -i pictures -r -f webp -dry-run
 ```
 
+### Output Detail
+* `-v` prints a line for every file with its size in pixels and bytes before and after, and how long it took. Failures are shown as they happen as well as in the final report.
+* `-quiet` prints nothing unless something goes wrong. Errors and warnings are still written to stderr, and the exit code still says whether the run succeeded.
+
 ### Existing Files
 * A file already in the output directory with the same name is replaced. The output says when that happened, and the batch report counts the replaced files.
 * With `-skip-existing` those files are left untouched instead. This also lets an interrupted batch carry on where it stopped, as only the missing files are converted:
@@ -135,6 +139,8 @@ Converting an animated GIF to GIF keeps all frames. Converting it to any other f
 | `-skip-existing` | Leave files that already exist in the output directory untouched | `false` |
 | `-dry-run` | Show what would be converted without writing anything | `false` |
 | `-workers` | Number of images to convert at once in batch mode | CPU cores |
+| `-v` | Print a detailed line for every file | `false` |
+| `-quiet` | Print nothing but errors and warnings | `false` |
 | `-h` | Show help | |
 
 ## Exit Codes

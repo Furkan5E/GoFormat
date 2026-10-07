@@ -41,6 +41,7 @@ func TestRunExitCodes(t *testing.T) {
 		{"missing input", []string{"-i", filepath.Join(dir, "nope.png"), "-o", out}, exitFailure},
 		{"corrupt input", []string{"-i", broken, "-o", out}, exitFailure},
 		{"dry run", []string{"-i", good, "-o", filepath.Join(dir, "dry"), "-f", "png", "-dry-run"}, exitOK},
+		{"verbose and quiet together", []string{"-i", good, "-o", out, "-v", "-quiet"}, exitUsage},
 		{"batch with a failure", []string{"-i", dir, "-o", out, "-f", "png"}, exitFailure},
 	}
 
@@ -80,5 +81,45 @@ func TestRunWritesErrorsToStderr(t *testing.T) {
 	}
 	if got, _ := os.ReadFile(stdout.Name()); strings.Contains(string(got), "Error") {
 		t.Errorf("stdout = %q, want no error message", got)
+	}
+}
+
+// -quiet leaves stdout empty, -v describes each file
+func TestRunVerbosity(t *testing.T) {
+	dir := t.TempDir()
+	in := filepath.Join(dir, "in")
+	os.Mkdir(in, 0o755)
+	f, err := os.Create(filepath.Join(in, "a.png"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	png.Encode(f, image.NewRGBA(image.Rect(0, 0, 8, 4)))
+	f.Close()
+
+	capture := func(args ...string) string {
+		t.Helper()
+		stdout, err := os.Create(filepath.Join(dir, "stdout.txt"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		old := os.Stdout
+		os.Stdout = stdout
+		code := run(args)
+		os.Stdout = old
+		stdout.Close()
+		if code != exitOK {
+			t.Fatalf("run(%v) = %d, want %d", args, code, exitOK)
+		}
+		got, _ := os.ReadFile(stdout.Name())
+		return string(got)
+	}
+
+	for _, input := range []string{in, filepath.Join(in, "a.png")} {
+		if got := capture("-i", input, "-o", filepath.Join(dir, "out"), "-f", "png", "-width", "4", "-quiet"); got != "" {
+			t.Errorf("-quiet printed %q, want nothing", got)
+		}
+		if got := capture("-i", input, "-o", filepath.Join(dir, "out"), "-f", "png", "-width", "4", "-v"); !strings.Contains(got, "8x4 -> 4x2") {
+			t.Errorf("-v printed %q, want the sizes before and after", got)
+		}
 	}
 }

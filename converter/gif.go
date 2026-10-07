@@ -22,15 +22,16 @@ func loadGIF(path string) (*gif.GIF, error) {
 }
 
 // preserve every frame of GIF
-func processGIFToGIF(inputPath, outPath string, opts Options) error {
+func processGIFToGIF(inputPath, outPath string, opts Options) (srcSize, outSize image.Point, err error) {
 	g, err := loadGIF(inputPath)
 	if err != nil {
-		return err
+		return srcSize, outSize, err
 	}
+	srcSize = image.Pt(g.Config.Width, g.Config.Height)
 
 	//no resize
 	if opts.Width == 0 && opts.Height == 0 {
-		return writeGIF(outPath, g)
+		return srcSize, srcSize, writeGIF(outPath, g)
 	}
 
 	pal := buildPalette(g)
@@ -49,8 +50,9 @@ func processGIFToGIF(inputPath, outPath string, opts Options) error {
 
 		resized, err := resizeImage(canvas, opts.Width, opts.Height, opts.Pixelart)
 		if err != nil {
-			return err
+			return srcSize, outSize, err
 		}
+		outSize = resized.Bounds().Size()
 
 		//dithering smooths the blended colours bilinear scaling produces; pixel art skips it to keep hard edges
 		frames[i] = format.Quantise(format.Flatten(resized), pal, !opts.Pixelart)
@@ -80,7 +82,7 @@ func processGIFToGIF(inputPath, outPath string, opts Options) error {
 		BackgroundIndex: format.TransparentIndex,
 	}
 
-	return writeGIF(outPath, out)
+	return srcSize, outSize, writeGIF(outPath, out)
 }
 
 // gather every opaque colour used by the source frames so resized output stays true to the original

@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/Furkan5E/GoFormat/v2/format"
 
@@ -30,6 +31,37 @@ type Result struct {
 	//a file was already at OutPath and has been left alone
 	Skipped  bool
 	Warnings []string
+
+	//pixel sizes before and after, file sizes in bytes and the time taken, shown in verbose output
+	SrcSize  image.Point
+	OutSize  image.Point
+	InBytes  int64
+	OutBytes int64
+	Elapsed  time.Duration
+}
+
+// Verbose is the detailed line printed for a finished file with -v
+func (r Result) Verbose() string {
+	if r.DryRun || r.Skipped {
+		return r.Summary()
+	}
+	line := fmt.Sprintf("Converted %s -> %s (%dx%d -> %dx%d, %s -> %s, %s)", r.InPath, r.OutPath,
+		r.SrcSize.X, r.SrcSize.Y, r.OutSize.X, r.OutSize.Y,
+		formatBytes(r.InBytes), formatBytes(r.OutBytes), r.Elapsed.Round(time.Millisecond))
+	if r.Replaced {
+		line += " (replaced existing file)"
+	}
+	return line
+}
+
+func formatBytes(n int64) string {
+	switch {
+	case n >= 1<<20:
+		return fmt.Sprintf("%.1f MB", float64(n)/(1<<20))
+	case n >= 1<<10:
+		return fmt.Sprintf("%.1f kB", float64(n)/(1<<10))
+	}
+	return fmt.Sprintf("%d B", n)
 }
 
 // Summary is the one line printed for a finished file
@@ -87,6 +119,8 @@ func ProcessImageTo(ctx context.Context, inputPath string, outPath string, opts 
 		return Result{InPath: inputPath, OutPath: outPath, Replaced: replaced, DryRun: true}, nil
 	}
 
+	start := time.Now()
+	res := Result{InPath: inputPath, OutPath: outPath, Replaced: replaced}
 	outFormat := strings.ToLower(opts.Format)
 	ext := strings.ToLower(filepath.Ext(inputPath))
 
@@ -95,7 +129,8 @@ func ProcessImageTo(ctx context.Context, inputPath string, outPath string, opts 
 
 	if ext == ".gif" && outFormat == "gif" {
 		//keep every frame instead of collapsing the animation to a single image
-		if err := processGIFToGIF(inputPath, outPath, opts); err != nil {
+		res.SrcSize, res.OutSize, err = processGIFToGIF(inputPath, outPath, opts)
+		if err != nil {
 			return Result{}, fmt.Errorf("failed to process %s: %w", inputPath, err)
 		}
 	} else {
@@ -113,6 +148,7 @@ func ProcessImageTo(ctx context.Context, inputPath string, outPath string, opts 
 		if ext != ".heic" && ext != ".heif" && ext != ".avif" {
 			img = applyOrientation(img, meta.Orientation)
 		}
+		res.SrcSize = img.Bounds().Size()
 
 		if opts.Width > 0 || opts.Height > 0 {
 			img, err = resizeImage(img, opts.Width, opts.Height, opts.Pixelart)
@@ -120,13 +156,20 @@ func ProcessImageTo(ctx context.Context, inputPath string, outPath string, opts 
 				return Result{}, fmt.Errorf("failed to resize %s: %w", inputPath, err)
 			}
 		}
+		res.OutSize = img.Bounds().Size()
 
 		if err := saveImage(img, outPath, enc, opts.Quality); err != nil {
 			return Result{}, fmt.Errorf("failed to save %s: %w", outPath, err)
 		}
 	}
 
-	res := Result{InPath: inputPath, OutPath: outPath, Replaced: replaced}
+	if info, err := os.Stat(inputPath); err == nil {
+		res.InBytes = info.Size()
+	}
+	if info, err := os.Stat(outPath); err == nil {
+		res.OutBytes = info.Size()
+	}
+	res.Elapsed = time.Since(start)
 
 	//reinject metadata
 	if meta.HasMetadata {

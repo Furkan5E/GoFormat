@@ -24,16 +24,20 @@ type progress struct {
 	failed      int
 	start       time.Time
 	interactive bool
+	verbose     bool
+	quiet       bool
 	lastDraw    time.Time
 	lastLen     int
 }
 
-// lines asks for one line per file even on a terminal
-func newProgress(total int, lines bool) *progress {
+func newProgress(total int, opts Options) *progress {
 	return &progress{
-		total:       total,
-		start:       time.Now(),
-		interactive: !lines && isTerminal(os.Stdout),
+		total: total,
+		start: time.Now(),
+		//a dry run and verbose output list every file, so they get a line each even on a terminal
+		interactive: !opts.DryRun && !opts.Verbose && !opts.Quiet && isTerminal(os.Stdout),
+		verbose:     opts.Verbose,
+		quiet:       opts.Quiet,
 	}
 }
 
@@ -53,7 +57,14 @@ func (p *progress) finish(res converter.Result, err error) {
 	}
 
 	if !p.interactive {
-		if err == nil {
+		switch {
+		case err != nil && p.verbose:
+			//failures are listed in the report, verbose output also shows them as they happen
+			fmt.Fprintf(os.Stderr, "Failed: %v\n", err)
+		case err != nil || p.quiet:
+		case p.verbose:
+			fmt.Println(res.Verbose())
+		default:
 			fmt.Println(res.Summary())
 		}
 		return

@@ -171,7 +171,7 @@ func TestProcessDirectoryCancelled(t *testing.T) {
 }
 
 func TestProgressETA(t *testing.T) {
-	p := newProgress(4, false)
+	p := newProgress(4, Options{})
 	if got := p.eta(); got != "ETA --" {
 		t.Errorf("eta before any job = %q, want \"ETA --\"", got)
 	}

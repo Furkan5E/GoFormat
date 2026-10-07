@@ -42,6 +42,8 @@ func run(args []string) int {
 	skipExisting := flags.Bool("skip-existing", false, "Leave files that already exist in the output directory untouched")
 	dryRun := flags.Bool("dry-run", false, "Show what would be converted without writing anything")
 	workers := flags.Int("workers", runtime.NumCPU(), "Number of images to convert at once in batch mode")
+	verbose := flags.Bool("v", false, "Print a detailed line for every file")
+	quiet := flags.Bool("quiet", false, "Print nothing but errors and warnings")
 	if err := flags.Parse(args); err != nil {
 		//the flag package has already printed the error or usage
 		if errors.Is(err, flag.ErrHelp) {
@@ -62,6 +64,11 @@ func run(args []string) int {
 
 	if *quality < 1 || *quality > 100 {
 		fmt.Fprintln(os.Stderr, "Error: -q must be between 1 and 100")
+		return exitUsage
+	}
+
+	if *verbose && *quiet {
+		fmt.Fprintln(os.Stderr, "Error: -v and -quiet cannot be used together")
 		return exitUsage
 	}
 
@@ -108,6 +115,8 @@ func run(args []string) int {
 			Options:   opts,
 			Recursive: *recursive,
 			Workers:   *workers,
+			Verbose:   *verbose,
+			Quiet:     *quiet,
 		})
 	} else {
 		var res converter.Result
@@ -115,7 +124,13 @@ func run(args []string) int {
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error processing file: %v\n", err)
 		} else {
-			fmt.Println(res.Summary())
+			switch {
+			case *quiet:
+			case *verbose:
+				fmt.Println(res.Verbose())
+			default:
+				fmt.Println(res.Summary())
+			}
 			for _, msg := range res.Warnings {
 				fmt.Fprintf(os.Stderr, "Warning: %s\n", msg)
 			}

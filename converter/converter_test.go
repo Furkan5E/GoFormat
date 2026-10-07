@@ -323,7 +323,7 @@ func TestProcessGIFToGIFKeepsFrames(t *testing.T) {
 	in, out := filepath.Join(dir, "in.gif"), filepath.Join(dir, "out.gif")
 	writeMovingSprite(t, in)
 
-	if err := processGIFToGIF(in, out, Options{}); err != nil {
+	if _, _, err := processGIFToGIF(in, out, Options{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -345,7 +345,7 @@ func TestProcessGIFToGIFResize(t *testing.T) {
 		in, out := filepath.Join(dir, "in.gif"), filepath.Join(dir, "out.gif")
 		writeMovingSprite(t, in)
 
-		if err := processGIFToGIF(in, out, Options{Width: 16, Pixelart: pixelart}); err != nil {
+		if _, _, err := processGIFToGIF(in, out, Options{Width: 16, Pixelart: pixelart}); err != nil {
 			t.Fatal(err)
 		}
 
