@@ -171,7 +171,7 @@ func TestProcessDirectoryCancelled(t *testing.T) {
 }
 
 func TestProgressETA(t *testing.T) {
-	p := newProgress(4)
+	p := newProgress(4, false)
 	if got := p.eta(); got != "ETA --" {
 		t.Errorf("eta before any job = %q, want \"ETA --\"", got)
 	}
@@ -196,5 +196,20 @@ func TestProcessDirectorySkipExisting(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(out, "b.jpeg")); err != nil {
 		t.Error("missing output was not converted")
+	}
+}
+
+// a dry run must leave the disk exactly as it found it
+func TestProcessDirectoryDryRun(t *testing.T) {
+	in := t.TempDir()
+	out := filepath.Join(t.TempDir(), "out")
+	makeTree(t, in, "a.png", "sub/b.png")
+
+	opts := Options{Options: converter.Options{Format: "jpeg", Quality: 85, DryRun: true}, Recursive: true, Workers: 2}
+	if err := ProcessDirectory(context.Background(), in, out, opts); err != nil {
+		t.Fatalf("ProcessDirectory: %v", err)
+	}
+	if _, err := os.Stat(out); err == nil {
+		t.Error("dry run created the output directory")
 	}
 }

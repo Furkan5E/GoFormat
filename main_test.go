@@ -40,6 +40,7 @@ func TestRunExitCodes(t *testing.T) {
 		{"unknown format", []string{"-i", good, "-o", out, "-f", "xyz"}, exitUsage},
 		{"missing input", []string{"-i", filepath.Join(dir, "nope.png"), "-o", out}, exitFailure},
 		{"corrupt input", []string{"-i", broken, "-o", out}, exitFailure},
+		{"dry run", []string{"-i", good, "-o", filepath.Join(dir, "dry"), "-f", "png", "-dry-run"}, exitOK},
 		{"batch with a failure", []string{"-i", dir, "-o", out, "-f", "png"}, exitFailure},
 	}
 

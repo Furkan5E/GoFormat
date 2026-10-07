@@ -28,11 +28,12 @@ type progress struct {
 	lastLen     int
 }
 
-func newProgress(total int) *progress {
+// lines asks for one line per file even on a terminal
+func newProgress(total int, lines bool) *progress {
 	return &progress{
 		total:       total,
 		start:       time.Now(),
-		interactive: isTerminal(os.Stdout),
+		interactive: !lines && isTerminal(os.Stdout),
 	}
 }
 

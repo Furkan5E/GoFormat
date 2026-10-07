@@ -444,3 +444,38 @@ func TestProcessImageSkipExisting(t *testing.T) {
 		t.Errorf("same file: Skipped = %v, err = %v, want it skipped", res.Skipped, err)
 	}
 }
+
+func TestProcessImageDryRun(t *testing.T) {
+	dir := t.TempDir()
+	in := filepath.Join(dir, "a.png")
+	writePNG(t, in, image.NewRGBA(image.Rect(0, 0, 4, 4)))
+	out := filepath.Join(dir, "a.jpeg")
+	opts := Options{Format: "jpeg", Quality: 85, DryRun: true}
+
+	res, err := ProcessImage(context.Background(), in, dir, opts)
+	if err != nil {
+		t.Fatalf("ProcessImage: %v", err)
+	}
+	if !res.DryRun || res.Replaced || res.OutPath != out {
+		t.Errorf("got %+v, want a dry run result for %s", res, out)
+	}
+	if _, err := os.Stat(out); err == nil {
+		t.Fatal("dry run wrote the output file")
+	}
+
+	//an existing output is reported as one that would be replaced, and is left as it is
+	os.WriteFile(out, []byte("existing"), 0o644)
+	res, err = ProcessImage(context.Background(), in, dir, opts)
+	if err != nil || !res.Replaced {
+		t.Errorf("Replaced = %v, err = %v, want true and nil", res.Replaced, err)
+	}
+	if data, _ := os.ReadFile(out); string(data) != "existing" {
+		t.Errorf("dry run changed the existing output to %q", data)
+	}
+
+	//problems a real run would hit are still reported
+	opts.Format = "png"
+	if _, err := ProcessImage(context.Background(), in, dir, opts); !errors.Is(err, ErrOverwritesInput) {
+		t.Errorf("err = %v, want ErrOverwritesInput", err)
+	}
+}

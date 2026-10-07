@@ -103,6 +103,12 @@ Set only `-width` or only `-height` to keep the original aspect ratio. Setting b
 * A progress bar with an estimated time remaining is shown in the terminal. When output is redirected to a file or another program, one line per file is printed instead.
 * The final report lists skipped unsupported files, failed files and any warnings.
 
+### Dry Run
+Add `-dry-run` to see what a command would do before running it for real. It lists every file with the output it would produce, marks the ones that would replace or skip an existing file, and writes nothing, not even the output directory:
+```bash
+.\goformat.exe -i pictures -r -f webp -dry-run
+```
+
 ### Existing Files
 * A file already in the output directory with the same name is replaced. The output says when that happened, and the batch report counts the replaced files.
 * With `-skip-existing` those files are left untouched instead. This also lets an interrupted batch carry on where it stopped, as only the missing files are converted:
@@ -127,6 +133,7 @@ Converting an animated GIF to GIF keeps all frames. Converting it to any other f
 | `-pixel` | Use nearest neighbour scaling to preserve pixel edges | `false` |
 | `-r` | Process subdirectories recursively | `false` |
 | `-skip-existing` | Leave files that already exist in the output directory untouched | `false` |
+| `-dry-run` | Show what would be converted without writing anything | `false` |
 | `-workers` | Number of images to convert at once in batch mode | CPU cores |
 | `-h` | Show help | |
 

@@ -40,6 +40,7 @@ func run(args []string) int {
 	height := flags.Int("height", 0, "Target height in pixels (0 to keep original)")
 	pixelart := flags.Bool("pixel", false, "Use nearest neighbour scaling to preserve pixel edges")
 	skipExisting := flags.Bool("skip-existing", false, "Leave files that already exist in the output directory untouched")
+	dryRun := flags.Bool("dry-run", false, "Show what would be converted without writing anything")
 	workers := flags.Int("workers", runtime.NumCPU(), "Number of images to convert at once in batch mode")
 	if err := flags.Parse(args); err != nil {
 		//the flag package has already printed the error or usage
@@ -75,11 +76,12 @@ func run(args []string) int {
 		return exitUsage
 	}
 
-	//create output directory if does not exist
-	err := os.MkdirAll(*outDir, os.ModePerm)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating output directory: %v\n", err)
-		return exitFailure
+	//create output directory if does not exist, except on a dry run which leaves the disk untouched
+	if !*dryRun {
+		if err := os.MkdirAll(*outDir, os.ModePerm); err != nil {
+			fmt.Fprintf(os.Stderr, "Error creating output directory: %v\n", err)
+			return exitFailure
+		}
 	}
 
 	info, err := os.Stat(*inputPath)
@@ -98,6 +100,7 @@ func run(args []string) int {
 		Height:       *height,
 		Pixelart:     *pixelart,
 		SkipExisting: *skipExisting,
+		DryRun:       *dryRun,
 	}
 
 	if info.IsDir() {

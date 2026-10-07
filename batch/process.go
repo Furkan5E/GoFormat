@@ -45,13 +45,18 @@ func ProcessDirectory(ctx context.Context, dirPath string, outDir string, opts O
 	var errMu sync.Mutex
 	var failedJobs []string
 	var warnings []string
-	replaced, existing := 0, 0
+	converted, replaced, existing := 0, 0, 0
 
 	if len(jobList) > 0 && ctx.Err() == nil {
 		numWorkers := min(opts.Workers, len(jobList))
-		fmt.Printf("Initialising worker pool with %d concurrent threads...\n", numWorkers)
+		if opts.DryRun {
+			//nothing is converted, and a single worker lists the files in order
+			numWorkers = 1
+		} else {
+			fmt.Printf("Initialising worker pool with %d concurrent threads...\n", numWorkers)
+		}
 
-		bar := newProgress(len(jobList))
+		bar := newProgress(len(jobList), opts.DryRun)
 		jobs := make(chan Job, 100)
 		var wg sync.WaitGroup
 
@@ -67,16 +72,18 @@ func ProcessDirectory(ctx context.Context, dirPath string, outDir string, opts O
 
 					res, err := convert(ctx, job, opts)
 					errMu.Lock()
-					if err != nil {
+					switch {
+					case err != nil:
 						failedJobs = append(failedJobs, err.Error())
+					case res.Skipped:
+						existing++
+					default:
+						converted++
+						if res.Replaced {
+							replaced++
+						}
 					}
 					warnings = append(warnings, res.Warnings...)
-					if res.Replaced {
-						replaced++
-					}
-					if res.Skipped {
-						existing++
-					}
 					errMu.Unlock()
 					bar.finish(res, err)
 				}
@@ -97,7 +104,13 @@ func ProcessDirectory(ctx context.Context, dirPath string, outDir string, opts O
 		bar.close()
 	}
 
-	fmt.Println("\n=== Batch Processing Report ===")
+	if opts.DryRun {
+		fmt.Println("\n=== Dry Run Report ===")
+		fmt.Println("Nothing was written.")
+		fmt.Printf("Would convert %d files.\n", converted)
+	} else {
+		fmt.Println("\n=== Batch Processing Report ===")
+	}
 	if ctx.Err() != nil {
 		fmt.Println("Process was cancelled. Partial results saved.")
 	}
@@ -105,10 +118,18 @@ func ProcessDirectory(ctx context.Context, dirPath string, outDir string, opts O
 		fmt.Printf("Skipped %d unsupported files.\n", skipped)
 	}
 	if replaced > 0 {
-		fmt.Printf("Replaced %d files that already existed.\n", replaced)
+		if opts.DryRun {
+			fmt.Printf("Would replace %d files that already exist.\n", replaced)
+		} else {
+			fmt.Printf("Replaced %d files that already existed.\n", replaced)
+		}
 	}
 	if existing > 0 {
-		fmt.Printf("Skipped %d files that already existed.\n", existing)
+		if opts.DryRun {
+			fmt.Printf("Would skip %d files that already exist.\n", existing)
+		} else {
+			fmt.Printf("Skipped %d files that already existed.\n", existing)
+		}
 	}
 	if len(warnings) > 0 {
 		//problems go to stderr so they stay visible when the report is redirected
@@ -122,7 +143,7 @@ func ProcessDirectory(ctx context.Context, dirPath string, outDir string, opts O
 		for _, errMsg := range failedJobs {
 			fmt.Fprintf(os.Stderr, "  x %s\n", errMsg)
 		}
-	} else if ctx.Err() == nil && walkErr == nil {
+	} else if ctx.Err() == nil && walkErr == nil && !opts.DryRun {
 		fmt.Println("All files processed successfully with zero errors.")
 	}
 
@@ -225,7 +246,9 @@ func resolveCollisions(jobs []Job) {
 
 func convert(ctx context.Context, job Job, opts Options) (converter.Result, error) {
 	//created on demand so folders without images don't leave empty copies behind
-	if err := os.MkdirAll(job.OutputDir, os.ModePerm); err != nil {
+	if opts.DryRun {
+		//a dry run leaves the disk untouched
+	} else if err := os.MkdirAll(job.OutputDir, os.ModePerm); err != nil {
 		return converter.Result{}, fmt.Errorf("failed to create %s: %w", job.OutputDir, err)
 	}
 	outPath := filepath.Join(job.OutputDir, job.OutputName+"."+strings.ToLower(opts.Format))

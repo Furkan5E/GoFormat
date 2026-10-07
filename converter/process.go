@@ -21,7 +21,10 @@ var ErrOverwritesInput = errors.New("output would overwrite the input, choose an
 // Result describes a successful conversion
 // warnings are returned rather than printed so batch mode can report them without breaking the progress bar
 type Result struct {
+	InPath  string
 	OutPath string
+	//nothing was written, the result says what a real run would do
+	DryRun bool
 	//a file was already at OutPath and has been replaced
 	Replaced bool
 	//a file was already at OutPath and has been left alone
@@ -31,7 +34,14 @@ type Result struct {
 
 // Summary is the one line printed for a finished file
 func (r Result) Summary() string {
-	if r.Skipped {
+	switch {
+	case r.DryRun && r.Skipped:
+		return fmt.Sprintf("Would skip existing file: %s", r.OutPath)
+	case r.DryRun && r.Replaced:
+		return fmt.Sprintf("Would convert: %s -> %s (replacing existing file)", r.InPath, r.OutPath)
+	case r.DryRun:
+		return fmt.Sprintf("Would convert: %s -> %s", r.InPath, r.OutPath)
+	case r.Skipped:
 		return fmt.Sprintf("Skipped existing file: %s", r.OutPath)
 	}
 	if r.Replaced {
@@ -51,6 +61,8 @@ type Options struct {
 	Pixelart bool
 	//leave files that already exist at the output path alone instead of replacing them
 	SkipExisting bool
+	//work out what would happen to each file without writing anything
+	DryRun bool
 }
 
 func ProcessImage(ctx context.Context, inputPath string, outDir string, opts Options) (Result, error) {
@@ -69,7 +81,10 @@ func ProcessImageTo(ctx context.Context, inputPath string, outPath string, opts 
 		return Result{}, err
 	}
 	if replaced && opts.SkipExisting {
-		return Result{OutPath: outPath, Skipped: true}, nil
+		return Result{InPath: inputPath, OutPath: outPath, Skipped: true, DryRun: opts.DryRun}, nil
+	}
+	if opts.DryRun {
+		return Result{InPath: inputPath, OutPath: outPath, Replaced: replaced, DryRun: true}, nil
 	}
 
 	outFormat := strings.ToLower(opts.Format)
@@ -111,7 +126,7 @@ func ProcessImageTo(ctx context.Context, inputPath string, outPath string, opts 
 		}
 	}
 
-	res := Result{OutPath: outPath, Replaced: replaced}
+	res := Result{InPath: inputPath, OutPath: outPath, Replaced: replaced}
 
 	//reinject metadata
 	if meta.HasMetadata {
