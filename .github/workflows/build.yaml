@@ -42,8 +42,14 @@ jobs:
 
     - name: Build Binaries
       run: |
+        # reported by -version: the tag on a release, the commit otherwise
+        if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+          version=$GITHUB_REF_NAME
+        else
+          version="dev-${GITHUB_SHA::7}"
+        fi
         build() {
-          GOOS=$1 GOARCH=$2 go build -trimpath -ldflags="-s -w" -o "bin/$3" .
+          GOOS=$1 GOARCH=$2 go build -trimpath -ldflags="-s -w -X main.version=$version" -o "bin/$3" .
         }
         build windows amd64 goformat-windows-amd64.exe
         build linux   amd64 goformat-linux-amd64

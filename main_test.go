@@ -31,6 +31,7 @@ func TestRunExitCodes(t *testing.T) {
 	}{
 		{"success", []string{"-i", good, "-o", out, "-f", "png"}, exitOK},
 		{"help", []string{"-h"}, exitOK},
+		{"version", []string{"-version"}, exitOK},
 		{"missing -i", []string{"-o", out}, exitUsage},
 		{"unknown flag", []string{"-bogus"}, exitUsage},
 		{"negative width", []string{"-i", good, "-o", out, "-width", "-5"}, exitUsage},

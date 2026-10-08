@@ -72,6 +72,10 @@ go build -ldflags="-s -w" -o goformat.exe .
 # Linux / macOS
 go build -ldflags="-s -w" -o goformat .
 ```
+Released binaries and `go install` report the release they came from, and a binary built from source reports a development version based on its commit:
+```bash
+.\goformat.exe -version
+```
 Or run it without compiling by replacing `.\goformat.exe` with `go run .` in the examples below.
 
 ## Usage
@@ -141,6 +145,7 @@ Converting an animated GIF to GIF keeps all frames. Converting it to any other f
 | `-workers` | Number of images to convert at once in batch mode | CPU cores |
 | `-v` | Print a detailed line for every file | `false` |
 | `-quiet` | Print nothing but errors and warnings | `false` |
+| `-version` | Print the version and exit | |
 | `-h` | Show help | |
 
 ## Exit Codes

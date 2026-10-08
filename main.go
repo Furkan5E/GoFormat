@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"runtime/debug"
 	"strings"
 	"syscall"
 
@@ -23,6 +24,20 @@ const (
 	exitUsage       = 2
 	exitInterrupted = 130
 )
+
+// version is set by release builds with -ldflags "-X main.version=..."
+var version string
+
+// buildVersion falls back to what the Go toolchain recorded, which covers go install
+func buildVersion() string {
+	if version != "" {
+		return version
+	}
+	if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
+		return info.Main.Version
+	}
+	return "dev"
+}
 
 func main() {
 	os.Exit(run(os.Args[1:]))
@@ -44,12 +59,18 @@ func run(args []string) int {
 	workers := flags.Int("workers", runtime.NumCPU(), "Number of images to convert at once in batch mode")
 	verbose := flags.Bool("v", false, "Print a detailed line for every file")
 	quiet := flags.Bool("quiet", false, "Print nothing but errors and warnings")
+	showVersion := flags.Bool("version", false, "Print the version and exit")
 	if err := flags.Parse(args); err != nil {
 		//the flag package has already printed the error or usage
 		if errors.Is(err, flag.ErrHelp) {
 			return exitOK
 		}
 		return exitUsage
+	}
+
+	if *showVersion {
+		fmt.Printf("goformat %s\n", buildVersion())
+		return exitOK
 	}
 
 	if *inputPath == "" {
