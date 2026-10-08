@@ -9,7 +9,7 @@ import (
 
 type TiffEncoder struct{}
 
-func (TiffEncoder) Encode(w io.Writer, img image.Image, quality int) error {
+func (TiffEncoder) Encode(w io.Writer, img image.Image, opts Options) error {
 	options := &tiff.Options{
 		Compression: tiff.Deflate,
 	}

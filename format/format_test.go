@@ -37,10 +37,10 @@ func TestGetEncoder(t *testing.T) {
 
 func TestIcoEncodeRejectsLargeImages(t *testing.T) {
 	var buf bytes.Buffer
-	if err := (IcoEncoder{}).Encode(&buf, image.NewNRGBA(image.Rect(0, 0, 257, 16)), 0); err == nil {
+	if err := (IcoEncoder{}).Encode(&buf, image.NewNRGBA(image.Rect(0, 0, 257, 16)), Options{}); err == nil {
 		t.Error("encoding a 257px wide ico returned no error")
 	}
-	if err := (IcoEncoder{}).Encode(&buf, image.NewNRGBA(image.Rect(0, 0, 256, 256)), 0); err != nil {
+	if err := (IcoEncoder{}).Encode(&buf, image.NewNRGBA(image.Rect(0, 0, 256, 256)), Options{}); err != nil {
 		t.Errorf("encoding a 256x256 ico failed: %v", err)
 	}
 }
@@ -56,7 +56,7 @@ func TestEncodersRoundTrip(t *testing.T) {
 		t.Run(f, func(t *testing.T) {
 			enc, _ := GetEncoder(f)
 			var buf bytes.Buffer
-			if err := enc.Encode(&buf, src, 85); err != nil {
+			if err := enc.Encode(&buf, src, Options{Quality: 85}); err != nil {
 				t.Fatalf("Encode: %v", err)
 			}
 			img, name, err := image.Decode(&buf)
@@ -78,7 +78,7 @@ func TestOpaqueFormatsUseWhiteBackground(t *testing.T) {
 		t.Run(f, func(t *testing.T) {
 			enc, _ := GetEncoder(f)
 			var buf bytes.Buffer
-			if err := enc.Encode(&buf, src, 95); err != nil {
+			if err := enc.Encode(&buf, src, Options{Quality: 95}); err != nil {
 				t.Fatalf("Encode: %v", err)
 			}
 			out, _, err := image.Decode(&buf)
@@ -205,7 +205,7 @@ func TestGifEncodeKeepsTransparencyAndColour(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	if err := (GifEncoder{}).Encode(&buf, src, 0); err != nil {
+	if err := (GifEncoder{}).Encode(&buf, src, Options{}); err != nil {
 		t.Fatalf("Encode: %v", err)
 	}
 	img, err := gif.Decode(&buf)
@@ -218,5 +218,29 @@ func TestGifEncodeKeepsTransparencyAndColour(t *testing.T) {
 	}
 	if got := color.NRGBAModel.Convert(img.At(3, 3)); got != odd {
 		t.Errorf("centre colour = %v, want %v", got, odd)
+	}
+}
+
+// lossy webp shifts colours slightly, which blurs the hard edges of pixel art
+func TestWebpLossless(t *testing.T) {
+	src := image.NewNRGBA(image.Rect(0, 0, 16, 16))
+	for i := 0; i < len(src.Pix); i += 4 {
+		src.Pix[i], src.Pix[i+1], src.Pix[i+2], src.Pix[i+3] = uint8(i*13), uint8(i*7), uint8(i*3), 255
+	}
+
+	var buf bytes.Buffer
+	if err := (WebpEncoder{}).Encode(&buf, src, Options{Quality: 85, Lossless: true}); err != nil {
+		t.Fatalf("Encode: %v", err)
+	}
+	out, _, err := image.Decode(&buf)
+	if err != nil {
+		t.Fatalf("Decode: %v", err)
+	}
+	for y := 0; y < 16; y++ {
+		for x := 0; x < 16; x++ {
+			if got := color.NRGBAModel.Convert(out.At(x, y)); got != src.NRGBAAt(x, y) {
+				t.Fatalf("pixel (%d,%d) = %v, want %v", x, y, got, src.NRGBAAt(x, y))
+			}
+		}
 	}
 }

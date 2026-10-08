@@ -9,6 +9,7 @@ import (
 
 type WebpEncoder struct{}
 
-func (WebpEncoder) Encode(w io.Writer, img image.Image, quality int) error {
-	return gowebp.Encode(w, img, &gowebp.Options{Lossy: true, Quality: float32(quality)})
+func (WebpEncoder) Encode(w io.Writer, img image.Image, opts Options) error {
+	//lossless keeps every pixel exactly, which suits pixel art and screenshots but makes photos much larger
+	return gowebp.Encode(w, img, &gowebp.Options{Lossy: !opts.Lossless, Quality: float32(opts.Quality)})
 }

@@ -54,6 +54,7 @@ func run(args []string) int {
 	width := flags.Int("width", 0, "Target width in pixels (0 to keep original)")
 	height := flags.Int("height", 0, "Target height in pixels (0 to keep original)")
 	pixelart := flags.Bool("pixel", false, "Use nearest neighbour scaling to preserve pixel edges")
+	lossless := flags.Bool("lossless", false, "Write lossless webp, keeping every pixel exactly (-q is ignored)")
 	skipExisting := flags.Bool("skip-existing", false, "Leave files that already exist in the output directory untouched")
 	dryRun := flags.Bool("dry-run", false, "Show what would be converted without writing anything")
 	workers := flags.Int("workers", runtime.NumCPU(), "Number of images to convert at once in batch mode")
@@ -85,6 +86,12 @@ func run(args []string) int {
 
 	if *quality < 1 || *quality > 100 {
 		fmt.Fprintln(os.Stderr, "Error: -q must be between 1 and 100")
+		return exitUsage
+	}
+
+	//png, tiff, bmp, gif and ico are lossless anyway, so the flag is harmless there
+	if f := strings.ToLower(*targetFormat); *lossless && (f == "jpeg" || f == "jpg" || f == "avif") {
+		fmt.Fprintf(os.Stderr, "Error: -lossless is not available for %s, use webp or png\n", f)
 		return exitUsage
 	}
 
@@ -124,6 +131,7 @@ func run(args []string) int {
 	opts := converter.Options{
 		Format:       *targetFormat,
 		Quality:      *quality,
+		Lossless:     *lossless,
 		Width:        *width,
 		Height:       *height,
 		Pixelart:     *pixelart,

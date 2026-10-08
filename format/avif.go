@@ -9,11 +9,11 @@ import (
 
 type AvifEncoder struct{}
 
-func (AvifEncoder) Encode(w io.Writer, img image.Image, quality int) error {
+func (AvifEncoder) Encode(w io.Writer, img image.Image, opts Options) error {
 	//every field is set because zero values are not defaults here (Speed 0 is the slowest setting)
 	return avif.Encode(w, img, avif.Options{
-		Quality:           quality,
-		QualityAlpha:      quality,
+		Quality:           opts.Quality,
+		QualityAlpha:      opts.Quality,
 		Speed:             avif.DefaultSpeed,
 		ChromaSubsampling: image.YCbCrSubsampleRatio420,
 	})

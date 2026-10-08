@@ -87,6 +87,8 @@ type Options struct {
 	//target format name, such as jpeg or png
 	Format  string
 	Quality int
+	//write lossless webp instead of lossy
+	Lossless bool
 	//target size in pixels, 0 keeps the original
 	Width    int
 	Height   int
@@ -158,7 +160,7 @@ func ProcessImageTo(ctx context.Context, inputPath string, outPath string, opts 
 		}
 		res.OutSize = img.Bounds().Size()
 
-		if err := saveImage(img, outPath, enc, opts.Quality); err != nil {
+		if err := saveImage(img, outPath, enc, format.Options{Quality: opts.Quality, Lossless: opts.Lossless}); err != nil {
 			return Result{}, fmt.Errorf("failed to save %s: %w", outPath, err)
 		}
 	}
@@ -255,9 +257,9 @@ func generateOutputPath(inputPath, outDir, targetFormat string) string {
 	return filepath.Join(outDir, fileName)
 }
 
-func saveImage(img image.Image, path string, enc format.Encoder, quality int) error {
+func saveImage(img image.Image, path string, enc format.Encoder, opts format.Options) error {
 	return writeFile(path, func(w io.Writer) error {
-		return enc.Encode(w, img, quality)
+		return enc.Encode(w, img, opts)
 	})
 }
 

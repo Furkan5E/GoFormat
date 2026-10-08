@@ -7,8 +7,16 @@ import (
 	"io"
 )
 
+// Options are the encoder settings, each used only by the formats that support it
+type Options struct {
+	//1 to 100, for jpeg, webp and avif
+	Quality int
+	//for webp, which is lossy otherwise
+	Lossless bool
+}
+
 type Encoder interface {
-	Encode(w io.Writer, img image.Image, quality int) error
+	Encode(w io.Writer, img image.Image, opts Options) error
 }
 
 var supportedExtensions = map[string]bool{

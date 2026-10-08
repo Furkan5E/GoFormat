@@ -43,6 +43,8 @@ func TestRunExitCodes(t *testing.T) {
 		{"corrupt input", []string{"-i", broken, "-o", out}, exitFailure},
 		{"dry run", []string{"-i", good, "-o", filepath.Join(dir, "dry"), "-f", "png", "-dry-run"}, exitOK},
 		{"verbose and quiet together", []string{"-i", good, "-o", out, "-v", "-quiet"}, exitUsage},
+		{"lossless jpeg", []string{"-i", good, "-o", out, "-f", "jpeg", "-lossless"}, exitUsage},
+		{"lossless webp", []string{"-i", good, "-o", out, "-f", "webp", "-lossless"}, exitOK},
 		{"batch with a failure", []string{"-i", dir, "-o", out, "-f", "png"}, exitFailure},
 	}
 

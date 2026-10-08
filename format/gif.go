@@ -11,7 +11,7 @@ import (
 
 type GifEncoder struct{}
 
-func (GifEncoder) Encode(w io.Writer, img image.Image, quality int) error {
+func (GifEncoder) Encode(w io.Writer, img image.Image, opts Options) error {
 	flat := Flatten(img)
 
 	b := NewPaletteBuilder()

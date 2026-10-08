@@ -13,7 +13,7 @@ A high performance, concurrent command-line image processing utility written in 
 * **Format Conversion:** Convert between nine image formats, including AVIF, ICO and iPhone HEIC photos.
 * **Batch Processing:** Process entire directories concurrently using multi core worker pools, with a progress bar and a summary report.
 * **Image Resizing:** Scale images up or down to specific dimensions.
-* **Compression Control:** Adjust the output quality of JPEG, WebP and AVIF to optimise file sizes.
+* **Compression Control:** Adjust the output quality of JPEG, WebP and AVIF to optimise file sizes, or write lossless WebP.
 * **Pixel Art Support:** Upscale pixel art and low-resolution graphics using nearest-neighbour scaling to preserve edges without blurring.
 * **Animated GIFs:** Converting GIF to GIF keeps every frame, frame delays and the loop count, including when resizing.
 * **Transparency:** Transparent areas are preserved when converting to GIF. JPEG and BMP cannot store transparency, so transparent areas become white.
@@ -93,6 +93,10 @@ Upscale 2D assets:
 ```bash
 .\goformat.exe -i sprites -o assets -f png -width 1024 -pixel
 ```
+WebP output is lossy by default, which suits photos. Add `-lossless` for pixel art, screenshots and anything else with hard edges:
+```bash
+.\goformat.exe -i sprites -o assets -f webp -lossless
+```
 
 ### Resizing
 Set only `-width` or only `-height` to keep the original aspect ratio. Setting both resizes to exactly that size, which stretches the image if the proportions differ:
@@ -136,6 +140,7 @@ Converting an animated GIF to GIF keeps all frames. Converting it to any other f
 | `-o` | Path to the output directory | `output` |
 | `-f` | Target format (`jpeg`, `png`, `webp`, `tiff`, `bmp`, `gif`, `ico`, `avif`) | `jpeg` |
 | `-q` | Compression quality for JPEG, WebP and AVIF (1 to 100) | `85` |
+| `-lossless` | Write lossless WebP, keeping every pixel exactly (`-q` is ignored) | `false` |
 | `-width` | Target width in pixels (0 to keep original) | `0` |
 | `-height` | Target height in pixels (0 to keep original) | `0` |
 | `-pixel` | Use nearest neighbour scaling to preserve pixel edges | `false` |
