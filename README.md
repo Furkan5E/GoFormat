@@ -109,6 +109,7 @@ Set only `-width` or only `-height` to keep the original aspect ratio. Setting b
 * If the output directory is inside the input directory, it is skipped so earlier results are not converted again.
 * Files in the same folder that share a name (`a.png` and `a.jpg`) would produce the same output file, so each keeps its original extension in the output name (`a_png.webp` and `a_jpg.webp`).
 * A progress bar with an estimated time remaining is shown in the terminal. When output is redirected to a file or another program, one line per file is printed instead.
+* Memory use is kept in check: very large images are converted a few at a time rather than one per worker, and an image over `-max-megapixels` (250 by default, about 1 GB once decoded) is refused before it is loaded. Set it to `0` to remove the limit.
 * The final report lists skipped unsupported files, failed files and any warnings.
 
 ### Dry Run
@@ -147,6 +148,7 @@ Converting an animated GIF to GIF keeps all frames. Converting it to any other f
 | `-r` | Process subdirectories recursively | `false` |
 | `-skip-existing` | Leave files that already exist in the output directory untouched | `false` |
 | `-dry-run` | Show what would be converted without writing anything | `false` |
+| `-max-megapixels` | Largest input image accepted, in megapixels (0 for no limit) | `250` |
 | `-workers` | Number of images to convert at once in batch mode | CPU cores |
 | `-v` | Print a detailed line for every file | `false` |
 | `-quiet` | Print nothing but errors and warnings | `false` |

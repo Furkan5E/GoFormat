@@ -45,6 +45,7 @@ func TestRunExitCodes(t *testing.T) {
 		{"verbose and quiet together", []string{"-i", good, "-o", out, "-v", "-quiet"}, exitUsage},
 		{"lossless jpeg", []string{"-i", good, "-o", out, "-f", "jpeg", "-lossless"}, exitUsage},
 		{"lossless webp", []string{"-i", good, "-o", out, "-f", "webp", "-lossless"}, exitOK},
+		{"negative megapixels", []string{"-i", good, "-o", out, "-max-megapixels", "-1"}, exitUsage},
 		{"batch with a failure", []string{"-i", dir, "-o", out, "-f", "png"}, exitFailure},
 	}
 

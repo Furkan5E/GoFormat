@@ -19,6 +19,9 @@ import (
 // ErrOverwritesInput is returned when the output path is the input file itself
 var ErrOverwritesInput = errors.New("output would overwrite the input, choose another output directory or format")
 
+// ErrTooLarge is returned for an input with more pixels than Options.MaxPixels
+var ErrTooLarge = errors.New("raise the limit with -max-megapixels to convert it")
+
 // Result describes a successful conversion
 // warnings are returned rather than printed so batch mode can report them without breaking the progress bar
 type Result struct {
@@ -97,6 +100,10 @@ type Options struct {
 	SkipExisting bool
 	//work out what would happen to each file without writing anything
 	DryRun bool
+	//largest input accepted, in pixels (width times height), 0 for no limit
+	MaxPixels int64
+	//shared by concurrent conversions to bound their combined memory use, may be nil
+	Memory *Budget
 }
 
 func ProcessImage(ctx context.Context, inputPath string, outDir string, opts Options) (Result, error) {
@@ -119,6 +126,24 @@ func ProcessImageTo(ctx context.Context, inputPath string, outPath string, opts 
 	}
 	if opts.DryRun {
 		return Result{InPath: inputPath, OutPath: outPath, Replaced: replaced, DryRun: true}, nil
+	}
+
+	//the size is read from the header, so an oversized image is turned away before any of it is decoded
+	cfg, err := loadConfig(inputPath)
+	if err != nil {
+		return Result{}, fmt.Errorf("failed to load %s: %w", inputPath, err)
+	}
+	pixels := int64(cfg.Width) * int64(cfg.Height)
+	if opts.MaxPixels > 0 && pixels > opts.MaxPixels {
+		return Result{}, fmt.Errorf("%s is %dx%d (%d megapixels), over the limit of %d megapixels: %w",
+			inputPath, cfg.Width, cfg.Height, pixels/1_000_000, opts.MaxPixels/1_000_000, ErrTooLarge)
+	}
+	if opts.Memory != nil {
+		reserved, err := opts.Memory.Acquire(ctx, pixels)
+		if err != nil {
+			return Result{}, err
+		}
+		defer opts.Memory.Release(reserved)
 	}
 
 	start := time.Now()
@@ -248,6 +273,17 @@ func loadImage(path string) (image.Image, error) {
 
 	img, _, err := image.Decode(file)
 	return img, err
+}
+
+func loadConfig(path string) (image.Config, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return image.Config{}, err
+	}
+	defer file.Close()
+
+	cfg, _, err := image.DecodeConfig(file)
+	return cfg, err
 }
 
 func generateOutputPath(inputPath, outDir, targetFormat string) string {

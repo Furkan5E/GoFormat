@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func writePNG(t *testing.T, path string, img image.Image) {
@@ -477,5 +478,96 @@ func TestProcessImageDryRun(t *testing.T) {
 	opts.Format = "png"
 	if _, err := ProcessImage(context.Background(), in, dir, opts); !errors.Is(err, ErrOverwritesInput) {
 		t.Errorf("err = %v, want ErrOverwritesInput", err)
+	}
+}
+
+// huge inputs used to be decoded whatever their size, on every worker at once
+func TestProcessImageMaxPixels(t *testing.T) {
+	dir := t.TempDir()
+	in := filepath.Join(dir, "a.png")
+	writePNG(t, in, image.NewRGBA(image.Rect(0, 0, 200, 100)))
+
+	_, err := ProcessImage(context.Background(), in, dir, Options{Format: "jpeg", Quality: 85, MaxPixels: 19_999})
+	if !errors.Is(err, ErrTooLarge) {
+		t.Errorf("err = %v, want ErrTooLarge", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "a.jpeg")); err == nil {
+		t.Error("an output was written for a rejected image")
+	}
+
+	for _, limit := range []int64{20_000, 0} {
+		if _, err := ProcessImage(context.Background(), in, dir, Options{Format: "jpeg", Quality: 85, MaxPixels: limit}); err != nil {
+			t.Errorf("MaxPixels %d: %v", limit, err)
+		}
+	}
+}
+
+// the size check reads only the header, which every readable format has to support
+func TestProcessImageReadsEveryFormat(t *testing.T) {
+	dir := t.TempDir()
+	in := filepath.Join(dir, "a.png")
+	writePNG(t, in, image.NewRGBA(image.Rect(0, 0, 20, 10)))
+
+	for _, f := range []string{"jpeg", "webp", "tiff", "bmp", "gif", "ico", "avif"} {
+		first, err := ProcessImage(context.Background(), in, dir, Options{Format: f, Quality: 85})
+		if err != nil {
+			t.Fatalf("png to %s: %v", f, err)
+		}
+		back, err := ProcessImageTo(context.Background(), first.OutPath, filepath.Join(dir, f+".png"), Options{Format: "png", MaxPixels: 200})
+		if err != nil {
+			t.Fatalf("%s to png: %v", f, err)
+		}
+		if back.SrcSize != image.Pt(20, 10) {
+			t.Errorf("%s read back as %v, want 20x10", f, back.SrcSize)
+		}
+	}
+}
+
+func TestBudget(t *testing.T) {
+	b := NewBudget(100)
+	ctx := context.Background()
+
+	first, err := b.Acquire(ctx, 60)
+	if err != nil || first != 60 {
+		t.Fatalf("Acquire(60) = %d, %v", first, err)
+	}
+
+	//60 more do not fit until the first 60 are released
+	got := make(chan int64)
+	go func() {
+		n, _ := b.Acquire(ctx, 60)
+		got <- n
+	}()
+	select {
+	case <-got:
+		t.Fatal("second Acquire did not wait for room")
+	case <-time.After(50 * time.Millisecond):
+	}
+	b.Release(first)
+	if n := <-got; n != 60 {
+		t.Fatalf("second Acquire = %d, want 60", n)
+	}
+	b.Release(60)
+
+	//an image larger than the whole budget takes all of it instead of waiting forever
+	if n, err := b.Acquire(ctx, 500); err != nil || n != 100 {
+		t.Fatalf("Acquire(500) = %d, %v, want 100", n, err)
+	}
+
+	//a cancelled run stops waiting
+	cancelled, cancel := context.WithCancel(ctx)
+	done := make(chan error)
+	go func() {
+		_, err := b.Acquire(cancelled, 10)
+		done <- err
+	}()
+	cancel()
+	select {
+	case err := <-done:
+		if !errors.Is(err, context.Canceled) {
+			t.Errorf("err = %v, want context.Canceled", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("Acquire kept waiting after the context was cancelled")
 	}
 }

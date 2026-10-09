@@ -57,6 +57,7 @@ func run(args []string) int {
 	lossless := flags.Bool("lossless", false, "Write lossless webp, keeping every pixel exactly (-q is ignored)")
 	skipExisting := flags.Bool("skip-existing", false, "Leave files that already exist in the output directory untouched")
 	dryRun := flags.Bool("dry-run", false, "Show what would be converted without writing anything")
+	maxMegapixels := flags.Int("max-megapixels", converter.DefaultMaxPixels/1_000_000, "Largest input image accepted, in megapixels (0 for no limit)")
 	workers := flags.Int("workers", runtime.NumCPU(), "Number of images to convert at once in batch mode")
 	verbose := flags.Bool("v", false, "Print a detailed line for every file")
 	quiet := flags.Bool("quiet", false, "Print nothing but errors and warnings")
@@ -92,6 +93,11 @@ func run(args []string) int {
 	//png, tiff, bmp, gif and ico are lossless anyway, so the flag is harmless there
 	if f := strings.ToLower(*targetFormat); *lossless && (f == "jpeg" || f == "jpg" || f == "avif") {
 		fmt.Fprintf(os.Stderr, "Error: -lossless is not available for %s, use webp or png\n", f)
+		return exitUsage
+	}
+
+	if *maxMegapixels < 0 {
+		fmt.Fprintln(os.Stderr, "Error: -max-megapixels cannot be negative")
 		return exitUsage
 	}
 
@@ -137,6 +143,7 @@ func run(args []string) int {
 		Pixelart:     *pixelart,
 		SkipExisting: *skipExisting,
 		DryRun:       *dryRun,
+		MaxPixels:    int64(*maxMegapixels) * 1_000_000,
 	}
 
 	if info.IsDir() {

@@ -40,6 +40,11 @@ func (o Options) say(format string, args ...any) {
 func ProcessDirectory(ctx context.Context, dirPath string, outDir string, opts Options) error {
 	opts.say("Scanning directory: %s\n", dirPath)
 
+	//small images still run on every worker, large ones wait for each other
+	if opts.Memory == nil {
+		opts.Memory = converter.NewBudget(converter.DefaultMaxPixels)
+	}
+
 	//collect everything first so the progress bar knows the total
 	jobList, skipped, err := collectJobs(ctx, dirPath, outDir, opts.Recursive)
 
