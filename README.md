@@ -133,6 +133,8 @@ Add `-dry-run` to see what a command would do before running it for real. It lis
 ### Animated GIFs
 Converting an animated GIF to GIF keeps all frames. Converting it to any other format keeps only the first frame, as those formats do not support animation.
 
+Resizing a GIF with `-pixel` scales each frame's pixels as they are, so every colour is kept exactly. Without `-pixel` the smooth scaling blends neighbouring pixels into new colours, which have to be matched to a 256 colour palette again. The source's own colours are used when they fit in one palette, otherwise each frame gets a palette fitted to it. The same fitting is used when converting a photo or other colourful image to GIF.
+
 ## Command Line Flags
 
 | Flag | Description | Default |

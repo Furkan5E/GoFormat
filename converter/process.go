@@ -12,8 +12,6 @@ import (
 	"time"
 
 	"github.com/Furkan5E/GoFormat/v2/format"
-
-	"golang.org/x/image/draw"
 )
 
 // ErrOverwritesInput is returned when the output path is the input file itself
@@ -178,7 +176,7 @@ func ProcessImageTo(ctx context.Context, inputPath string, outPath string, opts 
 		res.SrcSize = img.Bounds().Size()
 
 		if opts.Width > 0 || opts.Height > 0 {
-			img, err = resizeImage(img, opts.Width, opts.Height, opts.Pixelart)
+			img, err = resizeImage(img, opts)
 			if err != nil {
 				return Result{}, fmt.Errorf("failed to resize %s: %w", inputPath, err)
 			}
@@ -227,41 +225,6 @@ func checkOutput(inputPath, outPath string, opts Options) (exists bool, err erro
 		return false, fmt.Errorf("%s: %w", inputPath, ErrOverwritesInput)
 	}
 	return true, nil
-}
-
-func resizeImage(src image.Image, targetW, targetH int, pixelart bool) (image.Image, error) {
-	bounds := src.Bounds()
-	origW := bounds.Dx()
-	origH := bounds.Dy()
-
-	//empty images are valid for some decoders (e.g. bmp) but cannot be scaled
-	if origW == 0 || origH == 0 {
-		return nil, fmt.Errorf("cannot resize empty %dx%d image", origW, origH)
-	}
-
-	//keep aspect ratio, rounding to nearest and never below 1px so thin images stay encodable
-	if targetW == 0 {
-		targetW = max(1, (origW*targetH+origH/2)/origH)
-	}
-	if targetH == 0 {
-		targetH = max(1, (origH*targetW+origW/2)/origW)
-	}
-
-	//prevent massive allocations
-	const maxDim = 16384
-	if targetW > maxDim || targetH > maxDim {
-		return nil, fmt.Errorf("target resolution %dx%d exceeds maximum limit of %d", targetW, targetH, maxDim)
-	}
-
-	dst := image.NewRGBA(image.Rect(0, 0, targetW, targetH))
-
-	if pixelart {
-		draw.NearestNeighbor.Scale(dst, dst.Bounds(), src, bounds, draw.Over, nil)
-	} else {
-		draw.BiLinear.Scale(dst, dst.Bounds(), src, bounds, draw.Over, nil)
-	}
-
-	return dst, nil
 }
 
 func loadImage(path string) (image.Image, error) {

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"image"
 	"image/color"
+	"image/draw"
 	"image/gif"
 	"image/jpeg"
 	"image/png"
@@ -45,7 +46,7 @@ func TestResizeImage(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			src := image.NewRGBA(image.Rect(0, 0, tt.srcW, tt.srcH))
 			for _, pixelart := range []bool{false, true} {
-				got, err := resizeImage(src, tt.w, tt.h, pixelart)
+				got, err := resizeImage(src, Options{Width: tt.w, Height: tt.h, Pixelart: pixelart})
 				if err != nil {
 					t.Fatalf("resizeImage: %v", err)
 				}
@@ -59,13 +60,13 @@ func TestResizeImage(t *testing.T) {
 
 // an empty bmp used to panic with an integer divide by zero
 func TestResizeImageEmpty(t *testing.T) {
-	if _, err := resizeImage(image.NewRGBA(image.Rect(0, 0, 0, 0)), 100, 0, false); err == nil {
+	if _, err := resizeImage(image.NewRGBA(image.Rect(0, 0, 0, 0)), Options{Width: 100}); err == nil {
 		t.Error("resizing a 0x0 image returned no error")
 	}
 }
 
 func TestResizeImageTooLarge(t *testing.T) {
-	if _, err := resizeImage(image.NewRGBA(image.Rect(0, 0, 10, 10)), 20000, 0, false); err == nil {
+	if _, err := resizeImage(image.NewRGBA(image.Rect(0, 0, 10, 10)), Options{Width: 20000}); err == nil {
 		t.Error("resizing beyond the maximum dimension returned no error")
 	}
 }
@@ -569,5 +570,144 @@ func TestBudget(t *testing.T) {
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("Acquire kept waiting after the context was cancelled")
+	}
+}
+
+// draw an animation the way a viewer does, returning the finished picture of every frame
+func renderGIF(g *gif.GIF) []*image.RGBA {
+	canvas := image.NewRGBA(image.Rect(0, 0, g.Config.Width, g.Config.Height))
+	var shown []*image.RGBA
+	for i, frame := range g.Image {
+		draw.Draw(canvas, frame.Bounds(), frame, frame.Bounds().Min, draw.Over)
+		snapshot := image.NewRGBA(canvas.Bounds())
+		draw.Draw(snapshot, snapshot.Bounds(), canvas, image.Point{}, draw.Src)
+		shown = append(shown, snapshot)
+		if g.Disposal[i] == gif.DisposalBackground {
+			draw.Draw(canvas, frame.Bounds(), image.Transparent, image.Point{}, draw.Src)
+		}
+	}
+	return shown
+}
+
+// three frames with a palette of their own each, 600 colours in total, the later two covering only part of the canvas
+func writePatchworkGIF(t *testing.T, path string) {
+	t.Helper()
+	g := &gif.GIF{Config: image.Config{Width: 20, Height: 10}}
+	rects := []image.Rectangle{image.Rect(0, 0, 20, 10), image.Rect(3, 2, 13, 9), image.Rect(10, 0, 20, 10)}
+	for i, rect := range rects {
+		pal := color.Palette{color.NRGBA{}}
+		for c := 0; c < 200; c++ {
+			pal = append(pal, color.NRGBA{uint8(c), uint8(i * 100), uint8(255 - c), 255})
+		}
+		frame := image.NewPaletted(rect, pal)
+		for n := range frame.Pix {
+			//every seventh pixel is left transparent so the frame underneath shows through
+			if n%7 != 0 {
+				frame.Pix[n] = uint8(1 + (n*13)%200)
+			}
+		}
+		g.Image = append(g.Image, frame)
+		g.Delay = append(g.Delay, 5)
+		g.Disposal = append(g.Disposal, gif.DisposalNone)
+	}
+	g.Disposal[1] = gif.DisposalBackground
+
+	f, err := os.Create(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	if err := gif.EncodeAll(f, g); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// resizing with -pixel used to redraw every frame and match it to a new palette, losing colours when there were over 255
+func TestProcessGIFToGIFPixelResizeKeepsEveryColour(t *testing.T) {
+	dir := t.TempDir()
+	in, out := filepath.Join(dir, "in.gif"), filepath.Join(dir, "out.gif")
+	writePatchworkGIF(t, in)
+
+	if _, _, err := processGIFToGIF(in, out, Options{Width: 60, Pixelart: true}); err != nil {
+		t.Fatal(err)
+	}
+
+	src, got := readGIF(t, in), readGIF(t, out)
+	if got.Config.Width != 60 || got.Config.Height != 30 {
+		t.Fatalf("output is %dx%d, want 60x30", got.Config.Width, got.Config.Height)
+	}
+	if len(got.Image) != len(src.Image) {
+		t.Fatalf("got %d frames, want %d", len(got.Image), len(src.Image))
+	}
+
+	//every frame must look exactly like the original scaled up three times
+	want, shown := renderGIF(src), renderGIF(got)
+	for i := range want {
+		for y := 0; y < 30; y++ {
+			for x := 0; x < 60; x++ {
+				if shown[i].RGBAAt(x, y) != want[i].RGBAAt(x/3, y/3) {
+					t.Fatalf("frame %d pixel (%d,%d) = %v, want %v", i, x, y, shown[i].RGBAAt(x, y), want[i].RGBAAt(x/3, y/3))
+				}
+			}
+		}
+	}
+}
+
+// shrinking can leave a small frame with nothing in it, which falls back to redrawing the frames
+func TestProcessGIFToGIFPixelShrink(t *testing.T) {
+	dir := t.TempDir()
+	in, out := filepath.Join(dir, "in.gif"), filepath.Join(dir, "out.gif")
+
+	pal := color.Palette{color.NRGBA{}, spriteColour}
+	g := &gif.GIF{Config: image.Config{Width: 16, Height: 16}}
+	for _, rect := range []image.Rectangle{image.Rect(0, 0, 16, 16), image.Rect(0, 0, 1, 1)} {
+		frame := image.NewPaletted(rect, pal)
+		for n := range frame.Pix {
+			frame.Pix[n] = 1
+		}
+		g.Image = append(g.Image, frame)
+		g.Delay = append(g.Delay, 5)
+		g.Disposal = append(g.Disposal, gif.DisposalNone)
+	}
+	f, err := os.Create(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := gif.EncodeAll(f, g); err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+
+	if _, _, err := processGIFToGIF(in, out, Options{Width: 4, Pixelart: true}); err != nil {
+		t.Fatal(err)
+	}
+	got := readGIF(t, out)
+	if len(got.Image) != 2 {
+		t.Fatalf("got %d frames, want 2", len(got.Image))
+	}
+	for i, shown := range renderGIF(&gif.GIF{Image: got.Image, Disposal: got.Disposal, Config: image.Config{Width: 4, Height: 4}}) {
+		if got := color.NRGBAModel.Convert(shown.At(2, 2)); got != spriteColour {
+			t.Errorf("frame %d centre = %v, want %v", i, got, spriteColour)
+		}
+	}
+}
+
+// smooth scaling needs a new palette; with too many colours for one it used to fall back to a fixed, poorly matched one
+func TestProcessGIFToGIFSmoothResizeManyColours(t *testing.T) {
+	dir := t.TempDir()
+	in, out := filepath.Join(dir, "in.gif"), filepath.Join(dir, "out.gif")
+	writePatchworkGIF(t, in)
+
+	if _, _, err := processGIFToGIF(in, out, Options{Width: 10}); err != nil {
+		t.Fatal(err)
+	}
+	got := readGIF(t, out)
+	if len(got.Image) != 3 {
+		t.Fatalf("got %d frames, want 3", len(got.Image))
+	}
+	for i, frame := range got.Image {
+		if b := frame.Bounds(); b.Dx() != 10 || b.Dy() != 5 {
+			t.Errorf("frame %d is %dx%d, want 10x5", i, b.Dx(), b.Dy())
+		}
 	}
 }

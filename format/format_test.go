@@ -244,3 +244,53 @@ func TestWebpLossless(t *testing.T) {
 		}
 	}
 }
+
+// images with too many colours for one palette used to be forced onto a fixed one that matched few of them
+func TestPaletteForFitsTheImage(t *testing.T) {
+	//a smooth blend of 4096 colours, all of them shades of red and blue
+	flat := image.NewNRGBA(image.Rect(0, 0, 64, 64))
+	for y := 0; y < 64; y++ {
+		for x := 0; x < 64; x++ {
+			flat.SetNRGBA(x, y, color.NRGBA{uint8(x * 4), 0, uint8(y * 4), 255})
+		}
+	}
+
+	pal, exact := PaletteFor(flat)
+	if exact {
+		t.Fatal("exact = true for an image with 4096 colours")
+	}
+	if len(pal) > 256 {
+		t.Fatalf("len(pal) = %d, want at most 256", len(pal))
+	}
+	if _, _, _, a := pal[TransparentIndex].RGBA(); a != 0 {
+		t.Error("TransparentIndex entry is not transparent")
+	}
+
+	//with 255 colours spread over the blend, no pixel should be far from one of them
+	worst := 0
+	for y := 0; y < 64; y++ {
+		for x := 0; x < 64; x++ {
+			c := flat.NRGBAAt(x, y)
+			p := pal[1:][pal[1:].Index(c)].(color.NRGBA)
+			if p.G != 0 {
+				t.Fatalf("palette has %v, a colour the image does not use", p)
+			}
+			d := max(int(c.R)-int(p.R), int(p.R)-int(c.R)) + max(int(c.B)-int(p.B), int(p.B)-int(c.B))
+			worst = max(worst, d)
+		}
+	}
+	if worst > 24 {
+		t.Errorf("worst match is off by %d, want at most 24", worst)
+	}
+}
+
+func TestPaletteForExact(t *testing.T) {
+	flat := image.NewNRGBA(image.Rect(0, 0, 2, 1))
+	red := color.NRGBA{255, 0, 0, 255}
+	flat.SetNRGBA(0, 0, red)
+
+	pal, exact := PaletteFor(flat)
+	if !exact || len(pal) != 2 || pal[1] != red {
+		t.Errorf("PaletteFor = %v, %v, want transparent and red, exact", pal, exact)
+	}
+}

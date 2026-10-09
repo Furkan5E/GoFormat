@@ -3,7 +3,6 @@ package format
 import (
 	"image"
 	"image/color"
-	"image/color/palette"
 	"image/draw"
 	"image/gif"
 	"io"
@@ -14,13 +13,8 @@ type GifEncoder struct{}
 func (GifEncoder) Encode(w io.Writer, img image.Image, opts Options) error {
 	flat := Flatten(img)
 
-	b := NewPaletteBuilder()
-	for i := 0; i < len(flat.Pix) && !b.Full(); i += 4 {
-		b.Add(color.NRGBA{flat.Pix[i], flat.Pix[i+1], flat.Pix[i+2], flat.Pix[i+3]})
-	}
-
-	//images that fit in one palette are mapped exactly, anything else is dithered onto the fallback
-	pal, exact := b.Palette()
+	//images that fit in one palette are mapped exactly, anything else is dithered onto a palette fitted to it
+	pal, exact := PaletteFor(flat)
 	return gif.Encode(w, Quantise(flat, pal, !exact), nil)
 }
 
@@ -59,11 +53,11 @@ func (b *PaletteBuilder) Full() bool {
 	return len(b.pal) > 256
 }
 
-// Palette returns the collected colours, or Plan9 when they do not fit.
-// exact is false when the fallback is used, as the image then needs dithering.
+// Palette returns the collected colours.
+// exact is false when there were too many to fit, and only the first 255 are returned.
 func (b *PaletteBuilder) Palette() (pal color.Palette, exact bool) {
 	if b.Full() {
-		return append(color.Palette{color.NRGBA{}}, palette.Plan9[:255]...), false
+		return b.pal[:256], false
 	}
 	return b.pal, true
 }
