@@ -12,7 +12,7 @@ A high performance, concurrent command-line image processing utility written in 
 ## Features
 * **Format Conversion:** Convert between nine image formats, including AVIF, ICO and iPhone HEIC photos.
 * **Batch Processing:** Process entire directories concurrently using multi core worker pools, with a progress bar and a summary report.
-* **Image Resizing:** Scale images up or down to specific dimensions.
+* **Image Resizing:** Scale images up or down to specific dimensions, stretching, fitting inside or cropping to fill them.
 * **Compression Control:** Adjust the output quality of JPEG, WebP and AVIF to optimise file sizes, or write lossless WebP.
 * **Pixel Art Support:** Upscale pixel art and low-resolution graphics using nearest-neighbour scaling to preserve edges without blurring.
 * **Animated GIFs:** Converting GIF to GIF keeps every frame, frame delays and the loop count, including when resizing.
@@ -103,6 +103,18 @@ Set only `-width` or only `-height` to keep the original aspect ratio. Setting b
 ```bash
 .\goformat.exe -i pictures -f tiff -width 1920 -height 1080
 ```
+Use `-fit` to keep the proportions when both are set:
+
+| `-fit` | Result |
+|--------|--------|
+| `stretch` | Exactly `-width` by `-height`, distorted if the proportions differ (default) |
+| `contain` | The whole image, as large as fits inside `-width` by `-height`, so one side may come out smaller |
+| `cover` | Exactly `-width` by `-height`, filled by the middle of the image with the overflowing edges cropped off |
+
+For example, square thumbnails cropped from the centre of each photo:
+```bash
+.\goformat.exe -i pictures -o thumbnails -f jpeg -width 300 -height 300 -fit cover
+```
 
 ### Batch Processing
 * The output directory mirrors the input folder structure, and folders without images are not copied.
@@ -146,6 +158,7 @@ Resizing a GIF with `-pixel` scales each frame's pixels as they are, so every co
 | `-lossless` | Write lossless WebP, keeping every pixel exactly (`-q` is ignored) | `false` |
 | `-width` | Target width in pixels (0 to keep original) | `0` |
 | `-height` | Target height in pixels (0 to keep original) | `0` |
+| `-fit` | How an image is fitted when both `-width` and `-height` are set (`stretch`, `contain`, `cover`) | `stretch` |
 | `-pixel` | Use nearest neighbour scaling to preserve pixel edges | `false` |
 | `-r` | Process subdirectories recursively | `false` |
 | `-skip-existing` | Leave files that already exist in the output directory untouched | `false` |

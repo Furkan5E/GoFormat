@@ -46,6 +46,9 @@ func TestRunExitCodes(t *testing.T) {
 		{"lossless jpeg", []string{"-i", good, "-o", out, "-f", "jpeg", "-lossless"}, exitUsage},
 		{"lossless webp", []string{"-i", good, "-o", out, "-f", "webp", "-lossless"}, exitOK},
 		{"negative megapixels", []string{"-i", good, "-o", out, "-max-megapixels", "-1"}, exitUsage},
+		{"unknown fit", []string{"-i", good, "-o", out, "-width", "2", "-height", "2", "-fit", "squash"}, exitUsage},
+		{"fit without both sizes", []string{"-i", good, "-o", out, "-width", "2", "-fit", "cover"}, exitUsage},
+		{"fit cover", []string{"-i", good, "-o", out, "-f", "png", "-width", "2", "-height", "1", "-fit", "cover"}, exitOK},
 		{"batch with a failure", []string{"-i", dir, "-o", out, "-f", "png"}, exitFailure},
 	}
 

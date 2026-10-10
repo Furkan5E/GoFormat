@@ -91,8 +91,10 @@ type Options struct {
 	//write lossless webp instead of lossy
 	Lossless bool
 	//target size in pixels, 0 keeps the original
-	Width    int
-	Height   int
+	Width  int
+	Height int
+	//how the image is fitted when both Width and Height are set, FitStretch if empty
+	Fit      Fit
 	Pixelart bool
 	//leave files that already exist at the output path alone instead of replacing them
 	SkipExisting bool

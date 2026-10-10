@@ -711,3 +711,101 @@ func TestProcessGIFToGIFSmoothResizeManyColours(t *testing.T) {
 		}
 	}
 }
+
+func TestPlanResizeFit(t *testing.T) {
+	tests := []struct {
+		name         string
+		srcW, srcH   int
+		w, h         int
+		fit          Fit
+		wantW, wantH int
+		wantCrop     image.Rectangle
+	}{
+		{"stretch ignores proportions", 400, 200, 100, 100, FitStretch, 100, 100, image.Rect(0, 0, 400, 200)},
+		{"empty fit is stretch", 400, 200, 100, 100, "", 100, 100, image.Rect(0, 0, 400, 200)},
+		{"contain wide image", 400, 200, 100, 100, FitContain, 100, 50, image.Rect(0, 0, 400, 200)},
+		{"contain tall image", 200, 400, 100, 100, FitContain, 50, 100, image.Rect(0, 0, 200, 400)},
+		{"contain never rounds to 0", 1000, 1, 10, 10, FitContain, 10, 1, image.Rect(0, 0, 1000, 1)},
+		{"cover wide image trims the sides", 400, 200, 100, 100, FitCover, 100, 100, image.Rect(100, 0, 300, 200)},
+		{"cover tall image trims top and bottom", 200, 400, 100, 50, FitCover, 100, 50, image.Rect(0, 150, 200, 250)},
+		{"cover with matching proportions keeps everything", 400, 200, 100, 50, FitCover, 100, 50, image.Rect(0, 0, 400, 200)},
+		{"fit is ignored with one side", 400, 200, 100, 0, FitCover, 100, 50, image.Rect(0, 0, 400, 200)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			plan, err := planResize(tt.srcW, tt.srcH, Options{Width: tt.w, Height: tt.h, Fit: tt.fit})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if plan.width != tt.wantW || plan.height != tt.wantH || plan.crop != tt.wantCrop {
+				t.Errorf("got %dx%d from %v, want %dx%d from %v", plan.width, plan.height, plan.crop, tt.wantW, tt.wantH, tt.wantCrop)
+			}
+		})
+	}
+}
+
+// cover keeps the middle of the picture and drops the edges
+func TestResizeImageCover(t *testing.T) {
+	//40x20 in four vertical stripes: green, red, blue, green
+	src := image.NewRGBA(image.Rect(0, 0, 40, 20))
+	stripes := []color.RGBA{{0, 255, 0, 255}, {255, 0, 0, 255}, {0, 0, 255, 255}, {0, 255, 0, 255}}
+	for y := 0; y < 20; y++ {
+		for x := 0; x < 40; x++ {
+			src.SetRGBA(x, y, stripes[x/10])
+		}
+	}
+
+	for _, pixelart := range []bool{false, true} {
+		got, err := resizeImage(src, Options{Width: 10, Height: 10, Fit: FitCover, Pixelart: pixelart})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if b := got.Bounds(); b.Dx() != 10 || b.Dy() != 10 {
+			t.Fatalf("got %dx%d, want 10x10", b.Dx(), b.Dy())
+		}
+		//the green stripes at both ends are trimmed away
+		if c := got.At(1, 5); c != stripes[1] {
+			t.Errorf("pixelart=%v: left of the output = %v, want red", pixelart, c)
+		}
+		if c := got.At(8, 5); c != stripes[2] {
+			t.Errorf("pixelart=%v: right of the output = %v, want blue", pixelart, c)
+		}
+	}
+}
+
+func TestParseFit(t *testing.T) {
+	for name, want := range map[string]Fit{"": FitStretch, "stretch": FitStretch, "Contain": FitContain, "COVER": FitCover} {
+		if got, err := ParseFit(name); err != nil || got != want {
+			t.Errorf("ParseFit(%q) = %q, %v, want %q", name, got, err, want)
+		}
+	}
+	if _, err := ParseFit("squash"); err == nil {
+		t.Error("ParseFit accepted an unknown name")
+	}
+}
+
+// the exact GIF path follows the same plan, so cover crops animations too
+func TestProcessGIFToGIFCover(t *testing.T) {
+	dir := t.TempDir()
+	in, out := filepath.Join(dir, "in.gif"), filepath.Join(dir, "out.gif")
+	writePatchworkGIF(t, in)
+
+	if _, _, err := processGIFToGIF(in, out, Options{Width: 10, Height: 10, Fit: FitCover, Pixelart: true}); err != nil {
+		t.Fatal(err)
+	}
+	src, got := readGIF(t, in), readGIF(t, out)
+	if got.Config.Width != 10 || got.Config.Height != 10 {
+		t.Fatalf("output is %dx%d, want 10x10", got.Config.Width, got.Config.Height)
+	}
+	//the 20x10 source loses five columns from each side and is otherwise untouched
+	want, shown := renderGIF(src), renderGIF(got)
+	for i := range want {
+		for y := 0; y < 10; y++ {
+			for x := 0; x < 10; x++ {
+				if shown[i].RGBAAt(x, y) != want[i].RGBAAt(x+5, y) {
+					t.Fatalf("frame %d pixel (%d,%d) = %v, want %v", i, x, y, shown[i].RGBAAt(x, y), want[i].RGBAAt(x+5, y))
+				}
+			}
+		}
+	}
+}

@@ -53,6 +53,7 @@ func run(args []string) int {
 	recursive := flags.Bool("r", false, "Process subdirectories recursively")
 	width := flags.Int("width", 0, "Target width in pixels (0 to keep original)")
 	height := flags.Int("height", 0, "Target height in pixels (0 to keep original)")
+	fitName := flags.String("fit", "stretch", "How an image is fitted when both -width and -height are set: stretch, contain or cover")
 	pixelart := flags.Bool("pixel", false, "Use nearest neighbour scaling to preserve pixel edges")
 	lossless := flags.Bool("lossless", false, "Write lossless webp, keeping every pixel exactly (-q is ignored)")
 	skipExisting := flags.Bool("skip-existing", false, "Leave files that already exist in the output directory untouched")
@@ -82,6 +83,16 @@ func run(args []string) int {
 
 	if *width < 0 || *height < 0 {
 		fmt.Fprintln(os.Stderr, "Error: -width and -height cannot be negative")
+		return exitUsage
+	}
+
+	fit, err := converter.ParseFit(*fitName)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		return exitUsage
+	}
+	if fit != converter.FitStretch && (*width == 0 || *height == 0) {
+		fmt.Fprintf(os.Stderr, "Error: -fit %s needs both -width and -height\n", fit)
 		return exitUsage
 	}
 
@@ -140,6 +151,7 @@ func run(args []string) int {
 		Lossless:     *lossless,
 		Width:        *width,
 		Height:       *height,
+		Fit:          fit,
 		Pixelart:     *pixelart,
 		SkipExisting: *skipExisting,
 		DryRun:       *dryRun,
