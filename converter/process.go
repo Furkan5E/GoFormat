@@ -1,6 +1,7 @@
 package converter
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -171,6 +172,9 @@ func ProcessImageTo(ctx context.Context, inputPath string, outPath string, opts 
 			return Result{}, fmt.Errorf("failed to load %s: %w", inputPath, err)
 		}
 
+		//decided on the image as decoded, before turning and resizing change what kind of image it is
+		embed := outputMetadata(meta, img)
+
 		//the heic and avif decoders already turn the image themselves
 		if ext != ".heic" && ext != ".heif" && ext != ".avif" {
 			img = applyOrientation(img, meta.Orientation)
@@ -185,8 +189,13 @@ func ProcessImageTo(ctx context.Context, inputPath string, outPath string, opts 
 		}
 		res.OutSize = img.Bounds().Size()
 
-		if err := saveImage(img, outPath, enc, format.Options{Quality: opts.Quality, Lossless: opts.Lossless}); err != nil {
+		encOpts := format.Options{Quality: opts.Quality, Lossless: opts.Lossless}
+		warning, err := saveImage(img, outPath, outFormat, enc, encOpts, embed)
+		if err != nil {
 			return Result{}, fmt.Errorf("failed to save %s: %w", outPath, err)
+		}
+		if warning != "" {
+			res.Warnings = append(res.Warnings, warning)
 		}
 	}
 
@@ -258,10 +267,29 @@ func generateOutputPath(inputPath, outDir, targetFormat string) string {
 	return filepath.Join(outDir, fileName)
 }
 
-func saveImage(img image.Image, path string, enc format.Encoder, opts format.Options) error {
-	return writeFile(path, func(w io.Writer) error {
-		return enc.Encode(w, img, opts)
+// saveImage encodes img to path, adding meta when there is some and the format can hold it
+// metadata that could not be stored is reported as a warning, as the image itself is still complete
+func saveImage(img image.Image, path, name string, enc format.Encoder, opts format.Options, meta format.Metadata) (warning string, err error) {
+	if meta.Empty() || !format.CarriesMetadata(name) {
+		return "", writeFile(path, func(w io.Writer) error {
+			return enc.Encode(w, img, opts)
+		})
+	}
+
+	err = writeFile(path, func(w io.Writer) error {
+		//encoders write pixels only, so the metadata is added to the finished file before it reaches the disk
+		var buf bytes.Buffer
+		if err := enc.Encode(&buf, img, opts); err != nil {
+			return err
+		}
+		data, embedErr := format.EmbedMetadata(name, buf.Bytes(), meta)
+		if embedErr != nil {
+			warning = fmt.Sprintf("metadata not fully copied to %s: %v", path, embedErr)
+		}
+		_, err := w.Write(data)
+		return err
 	})
+	return warning, err
 }
 
 // writeFile encodes into a temporary file next to outPath and renames it into place once it is complete

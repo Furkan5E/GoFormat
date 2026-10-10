@@ -14,6 +14,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/Furkan5E/GoFormat/v2/format"
 )
 
 func writePNG(t *testing.T, path string, img image.Image) {
@@ -830,5 +832,126 @@ func TestProcessImageKeepsModifiedTime(t *testing.T) {
 	}
 	if !info.ModTime().Equal(old) {
 		t.Errorf("output modified time = %v, want %v", info.ModTime(), old)
+	}
+}
+
+// an EXIF block saying the picture is stored on its side (orientation 6), with a thumbnail directory after it
+func sidewaysEXIF() []byte {
+	return []byte{
+		'M', 'M', 0, 42, 0, 0, 0, 8,
+		0, 1,
+		0x01, 0x12, 0, 3, 0, 0, 0, 1, 0, 6, 0, 0,
+		0, 0, 0, 26,
+		0, 0, 0, 0, 0, 0,
+	}
+}
+
+// just enough of a colour profile to say it is for RGB values, or for something else
+func fakeProfile(space string) []byte {
+	icc := make([]byte, 300)
+	copy(icc[16:], space)
+	for i := 20; i < len(icc); i++ {
+		icc[i] = byte(i)
+	}
+	return icc
+}
+
+// write a png carrying the given metadata, 32x16 with the left half red and the right half blue
+func writePNGWithMetadata(t *testing.T, path string, m format.Metadata) {
+	t.Helper()
+	src := image.NewRGBA(image.Rect(0, 0, 32, 16))
+	for y := 0; y < 16; y++ {
+		for x := 0; x < 32; x++ {
+			if x < 16 {
+				src.SetRGBA(x, y, color.RGBA{255, 0, 0, 255})
+			} else {
+				src.SetRGBA(x, y, color.RGBA{0, 0, 255, 255})
+			}
+		}
+	}
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, src); err != nil {
+		t.Fatal(err)
+	}
+	data, err := format.EmbedMetadata("png", buf.Bytes(), m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// converted files used to lose their EXIF data and colour profile
+func TestProcessImageCopiesMetadata(t *testing.T) {
+	dir := t.TempDir()
+	in := filepath.Join(dir, "photo.png")
+	icc := fakeProfile("RGB ")
+	writePNGWithMetadata(t, in, format.Metadata{EXIF: sidewaysEXIF(), ICC: icc})
+
+	for _, tt := range []struct {
+		format string
+		opts   Options
+	}{
+		{"jpeg", Options{Quality: 90}},
+		{"webp", Options{Quality: 90}},
+		{"webp", Options{Lossless: true}},
+		{"png", Options{Width: 8}},
+	} {
+		tt.opts.Format = tt.format
+		out := filepath.Join(dir, "out."+tt.format)
+		res, err := ProcessImageTo(context.Background(), in, out, tt.opts)
+		if err != nil {
+			t.Fatalf("%s: %v", tt.format, err)
+		}
+		if len(res.Warnings) > 0 {
+			t.Errorf("%s: warnings %v", tt.format, res.Warnings)
+		}
+
+		got := format.ReadMetadataFile(out)
+		if !bytes.Equal(got.ICC, icc) {
+			t.Errorf("%s: colour profile came back as %d bytes, want %d", tt.format, len(got.ICC), len(icc))
+		}
+		//the pixels were turned upright, so the copied tag has to say so or viewers turn them again
+		if len(got.EXIF) != len(sidewaysEXIF()) || got.EXIF[19] != 1 {
+			t.Errorf("%s: EXIF = %v, want the block with orientation 1", tt.format, got.EXIF)
+		}
+
+		img, err := loadImage(out)
+		if err != nil {
+			t.Fatalf("%s: output does not decode: %v", tt.format, err)
+		}
+		b := img.Bounds()
+		if b.Dx()*2 != b.Dy() {
+			t.Fatalf("%s: output is %dx%d, want it turned on its side", tt.format, b.Dx(), b.Dy())
+		}
+		if r, _, bl, _ := img.At(b.Dx()/2, b.Dy()/4).RGBA(); r < 0xC000 || bl > 0x4000 {
+			t.Errorf("%s: top of the output is not red: %v", tt.format, img.At(b.Dx()/2, b.Dy()/4))
+		}
+	}
+
+	//formats without room for metadata are written as before, with nothing to warn about
+	res, err := ProcessImage(context.Background(), in, dir, Options{Format: "bmp"})
+	if err != nil || len(res.Warnings) > 0 {
+		t.Errorf("bmp: err = %v, warnings = %v", err, res.Warnings)
+	}
+}
+
+// a profile written for print or greyscale values would give wrong colours on output that is always RGB
+func TestProcessImageDropsProfilesThatNoLongerFit(t *testing.T) {
+	dir := t.TempDir()
+	in := filepath.Join(dir, "print.png")
+	writePNGWithMetadata(t, in, format.Metadata{ICC: fakeProfile("CMYK")})
+
+	res, err := ProcessImage(context.Background(), in, dir, Options{Format: "jpeg", Quality: 90})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := format.ReadMetadataFile(res.OutPath); len(got.ICC) != 0 {
+		t.Error("a CMYK profile was copied onto RGB output")
+	}
+
+	if profileFits(fakeProfile("RGB "), image.NewGray(image.Rect(0, 0, 1, 1))) {
+		t.Error("profileFits accepted an RGB profile for a greyscale image")
 	}
 }

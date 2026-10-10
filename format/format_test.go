@@ -294,3 +294,125 @@ func TestPaletteForExact(t *testing.T) {
 		t.Errorf("PaletteFor = %v, %v, want transparent and red, exact", pal, exact)
 	}
 }
+
+// a small EXIF block: orientation 6 and a link to a thumbnail directory at offset 26
+func sampleEXIF() []byte {
+	return []byte{
+		'M', 'M', 0, 42, 0, 0, 0, 8, //big-endian TIFF header, first directory at 8
+		0, 1, //one tag
+		0x01, 0x12, 0, 3, 0, 0, 0, 1, 0, 6, 0, 0, //orientation, one short, value 6
+		0, 0, 0, 26, //next directory
+		0, 0, 0, 0, 0, 0, //the thumbnail directory, empty
+	}
+}
+
+func TestEmbedMetadataRoundTrip(t *testing.T) {
+	exif := sampleEXIF()
+	//large enough to need three segments in a JPEG, and odd to exercise WebP padding
+	icc := make([]byte, 150_001)
+	for i := range icc {
+		icc[i] = byte(i * 31)
+	}
+
+	//half transparent so webp output exercises both of its layouts
+	src := image.NewNRGBA(image.Rect(0, 0, 12, 7))
+	for i := range src.Pix {
+		src.Pix[i] = uint8(i * 7)
+	}
+	opaque := image.NewRGBA(image.Rect(0, 0, 12, 7))
+
+	tests := []struct {
+		format string
+		img    image.Image
+		opts   Options
+	}{
+		{"jpeg", src, Options{Quality: 85}},
+		{"png", src, Options{}},
+		{"webp", src, Options{Quality: 85}},
+		{"webp", opaque, Options{Quality: 85}},
+		{"webp", src, Options{Lossless: true}},
+		{"webp", opaque, Options{Lossless: true}},
+	}
+	for _, tt := range tests {
+		for _, m := range []Metadata{{EXIF: exif, ICC: icc}, {EXIF: exif}, {ICC: icc}} {
+			enc, _ := GetEncoder(tt.format)
+			var buf bytes.Buffer
+			if err := enc.Encode(&buf, tt.img, tt.opts); err != nil {
+				t.Fatalf("%s: Encode: %v", tt.format, err)
+			}
+			out, err := EmbedMetadata(tt.format, buf.Bytes(), m)
+			if err != nil {
+				t.Fatalf("%s: EmbedMetadata: %v", tt.format, err)
+			}
+
+			got := ReadMetadata(out)
+			if !bytes.Equal(got.EXIF, m.EXIF) {
+				t.Errorf("%s %+v: EXIF came back as %d bytes, want %d", tt.format, tt.opts, len(got.EXIF), len(m.EXIF))
+			}
+			if !bytes.Equal(got.ICC, m.ICC) {
+				t.Errorf("%s %+v: ICC came back as %d bytes, want %d", tt.format, tt.opts, len(got.ICC), len(m.ICC))
+			}
+
+			//the picture itself must be untouched
+			img, _, err := image.Decode(bytes.NewReader(out))
+			if err != nil {
+				t.Fatalf("%s %+v: output no longer decodes: %v", tt.format, tt.opts, err)
+			}
+			if img.Bounds() != tt.img.Bounds() {
+				t.Errorf("%s %+v: decoded bounds %v, want %v", tt.format, tt.opts, img.Bounds(), tt.img.Bounds())
+			}
+			plain, _, _ := image.Decode(bytes.NewReader(buf.Bytes()))
+			for y := 0; y < 7; y++ {
+				for x := 0; x < 12; x++ {
+					if color.NRGBAModel.Convert(img.At(x, y)) != color.NRGBAModel.Convert(plain.At(x, y)) {
+						t.Fatalf("%s %+v: pixel (%d,%d) changed from %v to %v", tt.format, tt.opts, x, y, plain.At(x, y), img.At(x, y))
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestEmbedMetadataRejectsOtherData(t *testing.T) {
+	m := Metadata{EXIF: sampleEXIF()}
+	for _, f := range []string{"jpeg", "png", "webp", "bmp"} {
+		out, err := EmbedMetadata(f, []byte("not an image"), m)
+		if err == nil {
+			t.Errorf("%s: no error for data that is not an image", f)
+		}
+		if string(out) != "not an image" {
+			t.Errorf("%s: data was changed to %q", f, out)
+		}
+	}
+}
+
+func TestReadMetadataIgnoresDamage(t *testing.T) {
+	for _, data := range [][]byte{nil, []byte("hello"), {0xFF, 0xD8, 0xFF, 0xE1, 0xFF, 0xFF}, pngSignature, []byte("RIFF\x00\x00\x00\x00WEBPEXIF\xff\xff\xff\x7f")} {
+		if m := ReadMetadata(data); !m.Empty() {
+			t.Errorf("ReadMetadata(%q) = %+v, want nothing", data, m)
+		}
+	}
+}
+
+// a viewer turns the picture as the tag says, so pixels that are already upright need the tag set back to normal
+func TestUprightEXIF(t *testing.T) {
+	exif := sampleEXIF()
+	got := UprightEXIF(exif)
+
+	if exif[19] != 6 {
+		t.Fatal("the original block was modified")
+	}
+	if got[19] != 1 {
+		t.Errorf("orientation = %d, want 1", got[19])
+	}
+	if !bytes.Equal(got[22:26], []byte{0, 0, 0, 0}) {
+		t.Errorf("thumbnail link = %v, want it cleared", got[22:26])
+	}
+
+	//damaged blocks are returned as they are rather than read out of bounds
+	for _, bad := range [][]byte{nil, []byte("MM\x00*"), {'M', 'M', 0, 42, 0, 0, 0, 200}, {'I', 'I', 42, 0, 8, 0, 0, 0, 9, 0}} {
+		if got := UprightEXIF(bad); !bytes.Equal(got, bad) {
+			t.Errorf("UprightEXIF(%v) = %v, want it unchanged", bad, got)
+		}
+	}
+}

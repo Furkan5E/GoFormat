@@ -17,6 +17,7 @@ A high performance, concurrent command-line image processing utility written in 
 * **Pixel Art Support:** Upscale pixel art and low-resolution graphics using nearest-neighbour scaling to preserve edges without blurring.
 * **Animated GIFs:** Converting GIF to GIF keeps every frame, frame delays and the loop count, including when resizing.
 * **Transparency:** Transparent areas are preserved when converting to GIF. JPEG and BMP cannot store transparency, so transparent areas become white.
+* **Metadata:** EXIF data and colour profiles are carried over between JPEG, PNG and WebP, and converted files keep the date of the original.
 * **Photo Orientation:** Photos stored sideways with an EXIF orientation tag, as most phone cameras do, come out the right way up.
 
 ## Supported Formats
@@ -143,6 +144,9 @@ Add `-dry-run` to see what a command would do before running it for real. It lis
 * A file is never converted onto itself. Pointing `-o` at the input's own directory without changing the format fails for that file instead of destroying the original.
 
 ### Metadata
+* **EXIF and colour profiles:** when converting between JPEG, PNG and WebP, the EXIF data (camera, lens, exposure, date, GPS position) and the ICC colour profile are copied into the output. The profile is what keeps colours right for photos taken in a wider colour space such as Display P3.
+* The copied EXIF data is corrected for the output: the orientation is set to normal because the picture is saved upright, and the embedded thumbnail is dropped because it shows the picture before it was turned or resized.
+* TIFF, BMP, GIF, ICO and AVIF output is written without metadata, and nothing is read from TIFF, HEIC or AVIF input apart from the orientation and date.
 * **Dates:** the converted file's modified time is set to when the picture was taken, read from its EXIF data. Images without that information keep the modified time of the source file, so sorting by date still works after converting.
 
 ### Animated GIFs
