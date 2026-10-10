@@ -142,6 +142,9 @@ Add `-dry-run` to see what a command would do before running it for real. It lis
 ```
 * A file is never converted onto itself. Pointing `-o` at the input's own directory without changing the format fails for that file instead of destroying the original.
 
+### Metadata
+* **Dates:** the converted file's modified time is set to when the picture was taken, read from its EXIF data. Images without that information keep the modified time of the source file, so sorting by date still works after converting.
+
 ### Animated GIFs
 Converting an animated GIF to GIF keeps all frames. Converting it to any other format keeps only the first frame, as those formats do not support animation.
 

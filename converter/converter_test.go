@@ -809,3 +809,26 @@ func TestProcessGIFToGIFCover(t *testing.T) {
 		}
 	}
 }
+
+// images without an EXIF date, which is every png, gif and bmp, used to come out stamped with the time of conversion
+func TestProcessImageKeepsModifiedTime(t *testing.T) {
+	dir := t.TempDir()
+	in := filepath.Join(dir, "a.png")
+	writePNG(t, in, image.NewRGBA(image.Rect(0, 0, 4, 4)))
+	old := time.Date(2019, 3, 14, 15, 9, 26, 0, time.UTC)
+	if err := os.Chtimes(in, old, old); err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := ProcessImage(context.Background(), in, dir, Options{Format: "jpeg", Quality: 85})
+	if err != nil {
+		t.Fatalf("ProcessImage: %v", err)
+	}
+	info, err := os.Stat(res.OutPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !info.ModTime().Equal(old) {
+		t.Errorf("output modified time = %v, want %v", info.ModTime(), old)
+	}
+}

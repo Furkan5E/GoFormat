@@ -199,7 +199,7 @@ func ProcessImageTo(ctx context.Context, inputPath string, outPath string, opts 
 	res.Elapsed = time.Since(start)
 
 	//reinject metadata
-	if meta.HasMetadata {
+	if meta.HasTimestamp {
 		if err := os.Chtimes(outPath, meta.Timestamp, meta.Timestamp); err != nil {
 			res.Warnings = append(res.Warnings, fmt.Sprintf("failed to preserve timestamp for %s: %v", outPath, err))
 		}
