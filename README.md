@@ -147,6 +147,10 @@ Add `-dry-run` to see what a command would do before running it for real. It lis
 * **EXIF and colour profiles:** when converting between JPEG, PNG and WebP, the EXIF data (camera, lens, exposure, date, GPS position) and the ICC colour profile are copied into the output. The profile is what keeps colours right for photos taken in a wider colour space such as Display P3.
 * The copied EXIF data is corrected for the output: the orientation is set to normal because the picture is saved upright, and the embedded thumbnail is dropped because it shows the picture before it was turned or resized.
 * TIFF, BMP, GIF, ICO and AVIF output is written without metadata, and nothing is read from TIFF, HEIC or AVIF input apart from the orientation and date.
+* **Removing it:** `-strip` writes nothing but the picture, leaving out the EXIF data, the colour profile and the original date. Use it before sharing photos you do not want to reveal a location or camera for. Photos taken in a wide colour space can look slightly less vivid without their profile.
+```bash
+.\goformat.exe -i pictures -o shared -f jpeg -strip
+```
 * **Dates:** the converted file's modified time is set to when the picture was taken, read from its EXIF data. Images without that information keep the modified time of the source file, so sorting by date still works after converting.
 
 ### Animated GIFs
@@ -168,6 +172,7 @@ Resizing a GIF with `-pixel` scales each frame's pixels as they are, so every co
 | `-fit` | How an image is fitted when both `-width` and `-height` are set (`stretch`, `contain`, `cover`) | `stretch` |
 | `-pixel` | Use nearest neighbour scaling to preserve pixel edges | `false` |
 | `-r` | Process subdirectories recursively | `false` |
+| `-strip` | Leave out EXIF data, the colour profile and the original date | `false` |
 | `-skip-existing` | Leave files that already exist in the output directory untouched | `false` |
 | `-dry-run` | Show what would be converted without writing anything | `false` |
 | `-max-megapixels` | Largest input image accepted, in megapixels (0 for no limit) | `250` |

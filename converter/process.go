@@ -101,6 +101,8 @@ type Options struct {
 	SkipExisting bool
 	//work out what would happen to each file without writing anything
 	DryRun bool
+	//write nothing but the picture: no EXIF data, no colour profile and no date taken from the source
+	StripMetadata bool
 	//largest input accepted, in pixels (width times height), 0 for no limit
 	MaxPixels int64
 	//shared by concurrent conversions to bound their combined memory use, may be nil
@@ -174,6 +176,9 @@ func ProcessImageTo(ctx context.Context, inputPath string, outPath string, opts 
 
 		//decided on the image as decoded, before turning and resizing change what kind of image it is
 		embed := outputMetadata(meta, img)
+		if opts.StripMetadata {
+			embed = format.Metadata{}
+		}
 
 		//the heic and avif decoders already turn the image themselves
 		if ext != ".heic" && ext != ".heif" && ext != ".avif" {
@@ -208,7 +213,7 @@ func ProcessImageTo(ctx context.Context, inputPath string, outPath string, opts 
 	res.Elapsed = time.Since(start)
 
 	//reinject metadata
-	if meta.HasTimestamp {
+	if meta.HasTimestamp && !opts.StripMetadata {
 		if err := os.Chtimes(outPath, meta.Timestamp, meta.Timestamp); err != nil {
 			res.Warnings = append(res.Warnings, fmt.Sprintf("failed to preserve timestamp for %s: %v", outPath, err))
 		}

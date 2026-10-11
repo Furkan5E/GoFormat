@@ -56,6 +56,7 @@ func run(args []string) int {
 	fitName := flags.String("fit", "stretch", "How an image is fitted when both -width and -height are set: stretch, contain or cover")
 	pixelart := flags.Bool("pixel", false, "Use nearest neighbour scaling to preserve pixel edges")
 	lossless := flags.Bool("lossless", false, "Write lossless webp, keeping every pixel exactly (-q is ignored)")
+	strip := flags.Bool("strip", false, "Leave out EXIF data, the colour profile and the original date")
 	skipExisting := flags.Bool("skip-existing", false, "Leave files that already exist in the output directory untouched")
 	dryRun := flags.Bool("dry-run", false, "Show what would be converted without writing anything")
 	maxMegapixels := flags.Int("max-megapixels", converter.DefaultMaxPixels/1_000_000, "Largest input image accepted, in megapixels (0 for no limit)")
@@ -146,16 +147,17 @@ func run(args []string) int {
 	defer cancel()
 
 	opts := converter.Options{
-		Format:       *targetFormat,
-		Quality:      *quality,
-		Lossless:     *lossless,
-		Width:        *width,
-		Height:       *height,
-		Fit:          fit,
-		Pixelart:     *pixelart,
-		SkipExisting: *skipExisting,
-		DryRun:       *dryRun,
-		MaxPixels:    int64(*maxMegapixels) * 1_000_000,
+		Format:        *targetFormat,
+		Quality:       *quality,
+		Lossless:      *lossless,
+		Width:         *width,
+		Height:        *height,
+		Fit:           fit,
+		Pixelart:      *pixelart,
+		StripMetadata: *strip,
+		SkipExisting:  *skipExisting,
+		DryRun:        *dryRun,
+		MaxPixels:     int64(*maxMegapixels) * 1_000_000,
 	}
 
 	if info.IsDir() {

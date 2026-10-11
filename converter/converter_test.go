@@ -955,3 +955,34 @@ func TestProcessImageDropsProfilesThatNoLongerFit(t *testing.T) {
 		t.Error("profileFits accepted an RGB profile for a greyscale image")
 	}
 }
+
+// -strip is for sharing a picture without the camera, place and time it was taken with
+func TestProcessImageStripMetadata(t *testing.T) {
+	dir := t.TempDir()
+	in := filepath.Join(dir, "photo.png")
+	writePNGWithMetadata(t, in, format.Metadata{EXIF: sidewaysEXIF(), ICC: fakeProfile("RGB ")})
+	old := time.Date(2019, 3, 14, 15, 9, 26, 0, time.UTC)
+	if err := os.Chtimes(in, old, old); err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := ProcessImage(context.Background(), in, dir, Options{Format: "jpeg", Quality: 90, StripMetadata: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := format.ReadMetadataFile(res.OutPath); !got.Empty() {
+		t.Errorf("output still has %d bytes of EXIF and %d of colour profile", len(got.EXIF), len(got.ICC))
+	}
+	if info, _ := os.Stat(res.OutPath); info.ModTime().Equal(old) {
+		t.Error("output kept the date of the source")
+	}
+
+	//the picture is still turned upright, as that is part of how it looks rather than information about it
+	img, err := loadImage(res.OutPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b := img.Bounds(); b.Dx() != 16 || b.Dy() != 32 {
+		t.Errorf("output is %dx%d, want 16x32", b.Dx(), b.Dy())
+	}
+}
