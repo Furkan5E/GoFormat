@@ -135,6 +135,13 @@ Add `-dry-run` to see what a command would do before running it for real. It lis
 * `-v` prints a line for every file with its size in pixels and bytes before and after, and how long it took. Failures are shown as they happen as well as in the final report.
 * `-quiet` prints nothing unless something goes wrong. Errors and warnings are still written to stderr, and the exit code still says whether the run succeeded.
 
+### JSON Report
+For scripts, `-json` prints a report of the run as JSON instead of the usual output, so it can be saved or passed to another program:
+```bash
+.\goformat.exe -i pictures -r -f webp -json > report.json
+```
+The report has a `summary` with the number of files converted, replaced, skipped, failed and unsupported, and a `files` list in the order the files were found. Each file has its `input` and `output` path, a `status` (`converted`, `skipped` or `failed`; `would_convert` or `would_skip` on a dry run), the `error` if it failed, any `warnings`, and its size in pixels and bytes before and after. It works for a single file too, and the exit code is the same as without it.
+
 ### Existing Files
 * A file already in the output directory with the same name is replaced. The output says when that happened, and the batch report counts the replaced files.
 * With `-skip-existing` those files are left untouched instead. This also lets an interrupted batch carry on where it stopped, as only the missing files are converted:
@@ -179,6 +186,7 @@ Resizing a GIF with `-pixel` scales each frame's pixels as they are, so every co
 | `-workers` | Number of images to convert at once in batch mode | CPU cores |
 | `-v` | Print a detailed line for every file | `false` |
 | `-quiet` | Print nothing but errors and warnings | `false` |
+| `-json` | Print a JSON report of the run instead of the usual output | `false` |
 | `-version` | Print the version and exit | |
 | `-h` | Show help | |
 

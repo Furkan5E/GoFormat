@@ -110,8 +110,12 @@ type Options struct {
 }
 
 func ProcessImage(ctx context.Context, inputPath string, outDir string, opts Options) (Result, error) {
-	outPath := generateOutputPath(inputPath, outDir, strings.ToLower(opts.Format))
-	return ProcessImageTo(ctx, inputPath, outPath, opts)
+	return ProcessImageTo(ctx, inputPath, OutputPath(inputPath, outDir, opts.Format), opts)
+}
+
+// OutputPath is where ProcessImage writes its conversion of inputPath
+func OutputPath(inputPath, outDir, outFormat string) string {
+	return generateOutputPath(inputPath, outDir, strings.ToLower(outFormat))
 }
 
 // ProcessImageTo converts to an exact output path, for callers that choose the file name themselves

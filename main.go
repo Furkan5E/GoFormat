@@ -11,6 +11,7 @@ import (
 	"runtime/debug"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/Furkan5E/GoFormat/v2/batch"
 	"github.com/Furkan5E/GoFormat/v2/converter"
@@ -63,6 +64,7 @@ func run(args []string) int {
 	workers := flags.Int("workers", runtime.NumCPU(), "Number of images to convert at once in batch mode")
 	verbose := flags.Bool("v", false, "Print a detailed line for every file")
 	quiet := flags.Bool("quiet", false, "Print nothing but errors and warnings")
+	jsonReport := flags.Bool("json", false, "Print a JSON report of the run instead of the usual output")
 	showVersion := flags.Bool("version", false, "Print the version and exit")
 	if err := flags.Parse(args); err != nil {
 		//the flag package has already printed the error or usage
@@ -110,6 +112,11 @@ func run(args []string) int {
 
 	if *maxMegapixels < 0 {
 		fmt.Fprintln(os.Stderr, "Error: -max-megapixels cannot be negative")
+		return exitUsage
+	}
+
+	if *jsonReport && *verbose {
+		fmt.Fprintln(os.Stderr, "Error: -json and -v cannot be used together")
 		return exitUsage
 	}
 
@@ -161,17 +168,36 @@ func run(args []string) int {
 	}
 
 	if info.IsDir() {
-		err = batch.ProcessDirectory(ctx, *inputPath, *outDir, batch.Options{
+		batchOpts := batch.Options{
 			Options:   opts,
 			Recursive: *recursive,
 			Workers:   *workers,
 			Verbose:   *verbose,
 			Quiet:     *quiet,
-		})
+		}
+		if *jsonReport {
+			batchOpts.JSON = os.Stdout
+		}
+		err = batch.ProcessDirectory(ctx, *inputPath, *outDir, batchOpts)
 	} else {
 		var res converter.Result
+		start := time.Now()
 		res, err = converter.ProcessImage(ctx, *inputPath, *outDir, opts)
-		if err != nil {
+		if *jsonReport {
+			//a single file gets the same report as a directory, with one entry
+			report := batch.Report{
+				Input:     *inputPath,
+				Output:    *outDir,
+				Format:    strings.ToLower(*targetFormat),
+				DryRun:    *dryRun,
+				Cancelled: ctx.Err() != nil,
+			}
+			report.Add(batch.NewFileReport(*inputPath, converter.OutputPath(*inputPath, *outDir, *targetFormat), res, err))
+			report.ElapsedMs = time.Since(start).Milliseconds()
+			if writeErr := report.Write(os.Stdout); writeErr != nil {
+				fmt.Fprintf(os.Stderr, "Error writing the report: %v\n", writeErr)
+			}
+		} else if err != nil {
 			fmt.Fprintf(os.Stderr, "Error processing file: %v\n", err)
 		} else {
 			switch {

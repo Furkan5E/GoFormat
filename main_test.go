@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"image"
 	"image/png"
 	"os"
@@ -49,6 +50,7 @@ func TestRunExitCodes(t *testing.T) {
 		{"unknown fit", []string{"-i", good, "-o", out, "-width", "2", "-height", "2", "-fit", "squash"}, exitUsage},
 		{"fit without both sizes", []string{"-i", good, "-o", out, "-width", "2", "-fit", "cover"}, exitUsage},
 		{"fit cover", []string{"-i", good, "-o", out, "-f", "png", "-width", "2", "-height", "1", "-fit", "cover"}, exitOK},
+		{"json and verbose together", []string{"-i", good, "-o", out, "-json", "-v"}, exitUsage},
 		{"batch with a failure", []string{"-i", dir, "-o", out, "-f", "png"}, exitFailure},
 	}
 
@@ -127,6 +129,51 @@ func TestRunVerbosity(t *testing.T) {
 		}
 		if got := capture("-i", input, "-o", filepath.Join(dir, "out"), "-f", "png", "-width", "4", "-v"); !strings.Contains(got, "8x4 -> 4x2") {
 			t.Errorf("-v printed %q, want the sizes before and after", got)
+		}
+	}
+}
+
+// with -json stdout holds the report and nothing else, for a folder and for a single file
+func TestRunJSONReport(t *testing.T) {
+	dir := t.TempDir()
+	in := filepath.Join(dir, "in")
+	os.Mkdir(in, 0o755)
+	f, err := os.Create(filepath.Join(in, "a.png"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	png.Encode(f, image.NewRGBA(image.Rect(0, 0, 8, 4)))
+	f.Close()
+
+	for _, input := range []string{in, filepath.Join(in, "a.png"), filepath.Join(in, "missing.png")} {
+		stdout, err := os.Create(filepath.Join(dir, "stdout.txt"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		old := os.Stdout
+		os.Stdout = stdout
+		code := run([]string{"-i", input, "-o", filepath.Join(dir, "out"), "-f", "png", "-json"})
+		os.Stdout = old
+		stdout.Close()
+		got, _ := os.ReadFile(stdout.Name())
+
+		//a path that does not exist is a problem with the command, reported the usual way before any report
+		if strings.HasSuffix(input, "missing.png") {
+			if code != exitFailure || len(got) != 0 {
+				t.Errorf("missing input: code %d, stdout %q", code, got)
+			}
+			continue
+		}
+
+		var report struct {
+			Summary struct{ Total, Converted int }
+			Files   []struct{ Status string }
+		}
+		if err := json.Unmarshal(got, &report); err != nil {
+			t.Fatalf("stdout for %s is not JSON: %v\n%s", input, err, got)
+		}
+		if code != exitOK || report.Summary.Total != 1 || report.Summary.Converted != 1 || len(report.Files) != 1 || report.Files[0].Status != "converted" {
+			t.Errorf("%s: code %d, report %+v", input, code, report)
 		}
 	}
 }

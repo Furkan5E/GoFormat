@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/Furkan5E/GoFormat/v2/converter"
 	"github.com/Furkan5E/GoFormat/v2/format"
@@ -28,6 +30,8 @@ type Options struct {
 	Verbose bool
 	//print nothing but errors and warnings
 	Quiet bool
+	//when set, a JSON report of the run is written here and nothing else is printed
+	JSON io.Writer
 }
 
 // say prints progress information, which Quiet turns off
@@ -38,6 +42,11 @@ func (o Options) say(format string, args ...any) {
 }
 
 func ProcessDirectory(ctx context.Context, dirPath string, outDir string, opts Options) error {
+	start := time.Now()
+	//the report replaces everything meant for people, so that what is printed can be parsed
+	if opts.JSON != nil {
+		opts.Quiet, opts.Verbose = true, false
+	}
 	opts.say("Scanning directory: %s\n", dirPath)
 
 	//small images still run on every worker, large ones wait for each other
@@ -62,6 +71,8 @@ func ProcessDirectory(ctx context.Context, dirPath string, outDir string, opts O
 	var failedJobs []string
 	var warnings []string
 	converted, replaced, existing := 0, 0, 0
+	//one entry per job, in the order the files were found rather than the order they happened to finish in
+	files := make([]*FileReport, len(jobList))
 
 	if len(jobList) > 0 && ctx.Err() == nil {
 		numWorkers := min(opts.Workers, len(jobList))
@@ -73,7 +84,7 @@ func ProcessDirectory(ctx context.Context, dirPath string, outDir string, opts O
 		}
 
 		bar := newProgress(len(jobList), opts)
-		jobs := make(chan Job, 100)
+		jobs := make(chan int, 100)
 		var wg sync.WaitGroup
 
 		for i := 0; i < numWorkers; i++ {
@@ -81,13 +92,16 @@ func ProcessDirectory(ctx context.Context, dirPath string, outDir string, opts O
 			go func() {
 				defer wg.Done()
 				//worker constantly pulls from channel until it is closed
-				for job := range jobs {
+				for i := range jobs {
 					if ctx.Err() != nil {
 						return //exit goroutine
 					}
 
+					job := jobList[i]
 					res, err := convert(ctx, job, opts)
+					file := NewFileReport(job.InputPath, job.outputPath(opts.Format), res, err)
 					errMu.Lock()
+					files[i] = &file
 					switch {
 					case err != nil:
 						failedJobs = append(failedJobs, err.Error())
@@ -107,9 +121,9 @@ func ProcessDirectory(ctx context.Context, dirPath string, outDir string, opts O
 		}
 
 	feed:
-		for _, job := range jobList {
+		for i := range jobList {
 			select {
-			case jobs <- job:
+			case jobs <- i:
 			case <-ctx.Done():
 				break feed
 			}
@@ -147,14 +161,38 @@ func ProcessDirectory(ctx context.Context, dirPath string, outDir string, opts O
 			opts.say("Skipped %d files that already existed.\n", existing)
 		}
 	}
-	if len(warnings) > 0 {
+	if opts.JSON != nil {
+		report := Report{
+			Input:     dirPath,
+			Output:    outDir,
+			Format:    strings.ToLower(opts.Format),
+			DryRun:    opts.DryRun,
+			Cancelled: ctx.Err() != nil,
+			ElapsedMs: time.Since(start).Milliseconds(),
+		}
+		if walkErr != nil {
+			report.Error = walkErr.Error()
+		}
+		//files a cancelled run never reached have no entry
+		for _, file := range files {
+			if file != nil {
+				report.Add(*file)
+			}
+		}
+		report.Summary.Unsupported = skipped
+		if err := report.Write(opts.JSON); err != nil {
+			fmt.Fprintf(os.Stderr, "Error writing the report: %v\n", err)
+		}
+	} else if len(warnings) > 0 {
 		//problems go to stderr so they stay visible when the report is redirected
 		fmt.Fprintf(os.Stderr, "%d warnings:\n", len(warnings))
 		for _, msg := range warnings {
 			fmt.Fprintf(os.Stderr, "  ! %s\n", msg)
 		}
 	}
-	if len(failedJobs) > 0 {
+	if opts.JSON != nil {
+		//the failures are listed in the report
+	} else if len(failedJobs) > 0 {
 		fmt.Fprintf(os.Stderr, "Completed with %d errors:\n", len(failedJobs))
 		for _, errMsg := range failedJobs {
 			fmt.Fprintf(os.Stderr, "  x %s\n", errMsg)
@@ -267,6 +305,9 @@ func convert(ctx context.Context, job Job, opts Options) (converter.Result, erro
 	} else if err := os.MkdirAll(job.OutputDir, os.ModePerm); err != nil {
 		return converter.Result{}, fmt.Errorf("failed to create %s: %w", job.OutputDir, err)
 	}
-	outPath := filepath.Join(job.OutputDir, job.OutputName+"."+strings.ToLower(opts.Format))
-	return converter.ProcessImageTo(ctx, job.InputPath, outPath, opts.Options)
+	return converter.ProcessImageTo(ctx, job.InputPath, job.outputPath(opts.Format), opts.Options)
+}
+
+func (j Job) outputPath(format string) string {
+	return filepath.Join(j.OutputDir, j.OutputName+"."+strings.ToLower(format))
 }

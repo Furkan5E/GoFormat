@@ -1,7 +1,9 @@
 package batch
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"image"
 	"image/png"
@@ -211,5 +213,81 @@ func TestProcessDirectoryDryRun(t *testing.T) {
 	}
 	if _, err := os.Stat(out); err == nil {
 		t.Error("dry run created the output directory")
+	}
+}
+
+func TestProcessDirectoryJSONReport(t *testing.T) {
+	in, out := t.TempDir(), t.TempDir()
+	makeTree(t, in, "a.png", "b.png", "sub/c.png", "notes.txt")
+	os.WriteFile(filepath.Join(in, "broken.png"), []byte("not a png"), 0o644)
+	os.WriteFile(filepath.Join(out, "b.jpeg"), []byte("existing"), 0o644)
+
+	var buf bytes.Buffer
+	opts := Options{Options: converter.Options{Format: "JPEG", Quality: 85, SkipExisting: true}, Recursive: true, Workers: 3, JSON: &buf}
+	if err := ProcessDirectory(context.Background(), in, out, opts); err == nil {
+		t.Error("expected an error for the broken file")
+	}
+
+	var report Report
+	if err := json.Unmarshal(buf.Bytes(), &report); err != nil {
+		t.Fatalf("output is not a JSON report: %v\n%s", err, buf.String())
+	}
+	if report.Input != in || report.Output != out || report.Format != "jpeg" || report.DryRun || report.Cancelled {
+		t.Errorf("header = %+v", report)
+	}
+	want := Summary{Total: 4, Converted: 2, Skipped: 1, Failed: 1, Unsupported: 1}
+	if report.Summary != want {
+		t.Errorf("summary = %+v, want %+v", report.Summary, want)
+	}
+
+	//files are listed in the order they were found, whichever worker finished first
+	wantFiles := []struct{ name, status string }{
+		{"a.png", StatusConverted},
+		{"b.png", StatusSkipped},
+		{"broken.png", StatusFailed},
+		{filepath.Join("sub", "c.png"), StatusConverted},
+	}
+	if len(report.Files) != len(wantFiles) {
+		t.Fatalf("got %d files, want %d", len(report.Files), len(wantFiles))
+	}
+	for i, w := range wantFiles {
+		f := report.Files[i]
+		if f.Input != filepath.Join(in, w.name) || f.Status != w.status {
+			t.Errorf("file %d = %s %s, want %s %s", i, f.Input, f.Status, w.name, w.status)
+		}
+		if (f.Error != "") != (w.status == StatusFailed) {
+			t.Errorf("file %d: error = %q for status %s", i, f.Error, f.Status)
+		}
+	}
+	if f := report.Files[0]; f.Output != filepath.Join(out, "a.jpeg") || f.SourceWidth != 4 || f.Width != 4 || f.OutputBytes == 0 {
+		t.Errorf("converted file = %+v, want its output path and sizes", f)
+	}
+}
+
+func TestProcessDirectoryJSONReportDryRun(t *testing.T) {
+	in := t.TempDir()
+	out := filepath.Join(t.TempDir(), "out")
+
+	//an empty folder still gives a complete report, with an empty list rather than null
+	var buf bytes.Buffer
+	opts := Options{Options: converter.Options{Format: "png", DryRun: true}, Workers: 1, JSON: &buf}
+	if err := ProcessDirectory(context.Background(), in, out, opts); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), `"files": []`) {
+		t.Errorf("report for an empty folder = %s, want an empty file list", buf.String())
+	}
+
+	makeTree(t, in, "a.png")
+	buf.Reset()
+	if err := ProcessDirectory(context.Background(), in, out, opts); err != nil {
+		t.Fatal(err)
+	}
+	var report Report
+	if err := json.Unmarshal(buf.Bytes(), &report); err != nil {
+		t.Fatal(err)
+	}
+	if !report.DryRun || len(report.Files) != 1 || report.Files[0].Status != StatusWouldConvert || report.Summary.Converted != 1 {
+		t.Errorf("report = %+v, want one file that would be converted", report)
 	}
 }
